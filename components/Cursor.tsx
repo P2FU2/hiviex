@@ -1,13 +1,32 @@
 'use client'
 
+/**
+ * Custom Cursor Component
+ * 
+ * Provides a custom arrow cursor that follows mouse movement with smooth animation.
+ * Changes appearance based on theme and scales up when hovering interactive elements.
+ * 
+ * Features:
+ * - Smooth following animation using requestAnimationFrame
+ * - Theme-aware coloring (white for dark theme, black for light theme)
+ * - Automatic detection of interactive elements
+ * - Hidden on touch devices
+ * 
+ * @component
+ */
+
 import { useEffect, useRef, useState } from 'react'
+import { useThemeDetection } from '@/hooks/useThemeDetection'
+import { CURSOR, THEME_STORAGE_KEY, DEFAULT_THEME } from '@/lib/constants'
+import { Theme } from '@/lib/types'
 
 export default function Cursor() {
   const elRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+  const theme = useThemeDetection()
 
+  // Only render on client and non-touch devices
   useEffect(() => {
     if (typeof window === 'undefined') return
     if ('ontouchstart' in window) return
@@ -21,29 +40,11 @@ export default function Cursor() {
     const el = elRef.current
     if (!el) return
 
-    // Detectar tema
-    const getTheme = () => {
-      const htmlTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
-      return savedTheme || htmlTheme || 'dark'
-    }
-    
-    setTheme(getTheme())
-    
-    // Observar mudanças de tema
-    const themeObserver = new MutationObserver(() => {
-      setTheme(getTheme())
-    })
-    
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class']
-    })
-
-    // Configurar estilo inicial
+    // Initialize cursor styles
     el.style.transformOrigin = '0 0'
     el.style.opacity = '0'
     
+    // Animation state variables
     let raf = 0
     let mouseX = 0
     let mouseY = 0
@@ -52,12 +53,18 @@ export default function Cursor() {
     let currentScale = 1
     let isVisible = false
 
+    /**
+     * Animation loop using requestAnimationFrame for smooth movement
+     * Implements easing for natural cursor following
+     */
     const animate = () => {
       if (el && isVisible) {
-        currentX += (mouseX - currentX) * 0.2
-        currentY += (mouseY - currentY) * 0.2
+        // Smooth interpolation for cursor position
+        currentX += (mouseX - currentX) * CURSOR.SMOOTHNESS
+        currentY += (mouseY - currentY) * CURSOR.SMOOTHNESS
         
-        const targetScale = isHovering ? 1.15 : 1
+        // Smooth scale transition on hover
+        const targetScale = isHovering ? CURSOR.SCALE_ON_HOVER : 1
         currentScale += (targetScale - currentScale) * 0.25
         
         el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) scale(${currentScale})`
@@ -67,10 +74,14 @@ export default function Cursor() {
     
     animate()
 
+    /**
+     * Mouse move handler - updates target position and shows cursor
+     */
     const onMove = (e: MouseEvent) => {
       mouseX = e.clientX
       mouseY = e.clientY
       
+      // Show cursor on first movement
       if (!isVisible && el) {
         isVisible = true
         currentX = mouseX
@@ -79,13 +90,18 @@ export default function Cursor() {
       }
     }
 
-    const INTERACTIVE = 'a,button,[role="button"],input,textarea,select,summary,label'
+    /**
+     * Detects if cursor is over an interactive element
+     */
     const onPointer = (e: MouseEvent) => {
-      const t = e.target as Element | null
-      const hovering = !!t?.closest(INTERACTIVE)
+      const target = e.target as Element | null
+      const hovering = !!target?.closest(CURSOR.INTERACTIVE_SELECTORS)
       setIsHovering(hovering)
     }
 
+    /**
+     * Hide cursor when mouse leaves the window
+     */
     const onMouseLeave = () => {
       if (el) {
         el.style.opacity = '0'
@@ -93,6 +109,9 @@ export default function Cursor() {
       }
     }
     
+    /**
+     * Show cursor when mouse enters the window
+     */
     const onMouseEnter = () => {
       if (el) {
         el.style.opacity = '1'
@@ -100,15 +119,16 @@ export default function Cursor() {
       }
     }
 
+    // Event listeners with passive flag for better performance
     document.addEventListener('mousemove', onMove, { passive: true })
     document.addEventListener('mouseover', onPointer, { passive: true })
     document.addEventListener('mouseout', onPointer, { passive: true })
     document.addEventListener('mouseleave', onMouseLeave, { passive: true })
     document.body.addEventListener('mouseenter', onMouseEnter, { passive: true })
 
+    // Cleanup
     return () => {
       cancelAnimationFrame(raf)
-      themeObserver.disconnect()
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseover', onPointer)
       document.removeEventListener('mouseout', onPointer)
@@ -117,6 +137,7 @@ export default function Cursor() {
     }
   }, [mounted, isHovering])
 
+  // Don't render on server or touch devices
   if (!mounted) return null
 
   const cursorColor = theme === 'dark' ? '#ffffff' : '#000000'
@@ -124,16 +145,29 @@ export default function Cursor() {
   return (
     <div
       ref={elRef}
-      className="fixed z-[99999] will-change-transform pointer-events-none"
+      className="fixed will-change-transform pointer-events-none"
       style={{
         left: 0,
         top: 0,
+        zIndex: CURSOR.Z_INDEX,
       }}
       aria-hidden="true"
     >
-
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11 20.9999L4 3.99994L21 10.9999L14.7353 13.6848C14.2633 13.8871 13.8872 14.2632 13.6849 14.7353L11 20.9999Z" fill={cursorColor} stroke={cursorColor} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg 
+        width={CURSOR.SIZE} 
+        height={CURSOR.SIZE} 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path 
+          d="M11 20.9999L4 3.99994L21 10.9999L14.7353 13.6848C14.2633 13.8871 13.8872 14.2632 13.6849 14.7353L11 20.9999Z" 
+          fill={cursorColor} 
+          stroke={cursorColor} 
+          strokeWidth="1" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        />
       </svg>
     </div>
   )

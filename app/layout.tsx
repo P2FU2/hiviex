@@ -2,8 +2,10 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import Cursor from '@/components/Cursor'
-
+import CookieConsent from '@/components/CookieConsent'
+import AuthModal from '@/components/AuthModal'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,8 +23,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider>
-          <Cursor />
-          {children}
+          <AuthProvider>
+            <Cursor />
+            <CookieConsent />
+            <AuthModal />
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

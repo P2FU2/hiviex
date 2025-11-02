@@ -3,6 +3,7 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef, useState, useEffect } from 'react'
 import { Brain, Palette, Moon } from 'lucide-react'
+import VantaTrunk from './VantaTrunk'
 
 function QuoteCard({ isInView }: { isInView: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -110,7 +111,7 @@ function QuoteCard({ isInView }: { isInView: boolean }) {
             ease: 'easeInOut',
           }}
           style={{
-            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.25) 0%, transparent 65%)',
+            background: 'radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.25) 0%, transparent 65%)',
           }}
         />
         
@@ -229,6 +230,31 @@ export default function ContentSection() {
 
         {/* Seção de citação destacada */}
         <QuoteCard isInView={isInView} />
+
+        {/* Vanta TRUNK Effect Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="relative mt-32 min-h-[500px] rounded-3xl overflow-hidden bg-transparent border border-gray-200/50 dark:border-white/10"
+          style={{ position: 'relative' }}
+        >
+          <VantaTrunk 
+            className="opacity-60 dark:opacity-50"
+            color={0xffffff}
+            chaos={6.0}
+          />
+          <div className="relative z-10 p-12 text-center flex flex-col items-center justify-center min-h-[500px]">
+            <h3 className="text-3xl md:text-5xl font-bold mb-6 text-black dark:text-white">
+              Experience the Future
+            </h3>
+            <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Immerse yourself in an ecosystem where creativity never sleeps,
+              where artificial intelligence continuously evolves and creates,
+              pushing the boundaries of what&apos;s possible.
+            </p>
+          </div>
+        </motion.div>
       </div>
     </section>
   )
