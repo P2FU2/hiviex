@@ -1,6 +1,5 @@
 [build]
   command = "npm run build"
-  # ⚠️ NÃO defina "publish" manualmente aqui — o plugin cuida disso.
 
 [functions]
   node_bundler = "esbuild"
