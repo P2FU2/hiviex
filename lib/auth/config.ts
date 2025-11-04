@@ -114,6 +114,15 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   )
 }
 
+// Validate required environment variables
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn('⚠️  NEXTAUTH_SECRET is not set. Authentication may not work correctly.')
+}
+
+if (!process.env.NEXTAUTH_URL) {
+  console.warn('⚠️  NEXTAUTH_URL is not set. Using default: http://localhost:3000')
+}
+
 export const authOptions = {
   adapter: PrismaAdapter(prisma) as any,
   providers,
@@ -148,6 +157,7 @@ export const authOptions = {
       return `${baseUrl}/dashboard`
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only',
+  trustHost: true, // Required for Render and other hosting platforms
 }
 

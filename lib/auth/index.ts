@@ -8,7 +8,25 @@
 import NextAuth from 'next-auth'
 import { authOptions } from './config'
 
-const { auth, signIn, signOut } = NextAuth(authOptions)
+// Initialize NextAuth with error handling
+let authInstance: any
+let signInInstance: any
+let signOutInstance: any
 
-export { auth, signIn, signOut }
+try {
+  const instance = NextAuth(authOptions)
+  authInstance = instance.auth
+  signInInstance = instance.signIn
+  signOutInstance = instance.signOut
+} catch (error) {
+  console.error('Failed to initialize NextAuth:', error)
+  // Provide fallback functions to prevent app crash
+  authInstance = async () => null
+  signInInstance = async () => ({ error: 'Configuration' })
+  signOutInstance = async () => ({ error: 'Configuration' })
+}
+
+export const auth = authInstance
+export const signIn = signInInstance
+export const signOut = signOutInstance
 
