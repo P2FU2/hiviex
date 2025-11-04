@@ -8,6 +8,8 @@ import { getAuthSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST() {
   try {
     const session = await getAuthSession()

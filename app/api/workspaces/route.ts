@@ -9,6 +9,8 @@ import { auth } from '@/lib/auth'
 import { createTenant, getUserTenants } from '@/lib/utils/tenant'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(100),
   slug: z.string().min(1).max(50).optional(),

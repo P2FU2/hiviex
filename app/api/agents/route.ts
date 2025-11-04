@@ -11,6 +11,8 @@ import { prisma } from '@/lib/db/prisma'
 import { TenantRole } from '@prisma/client'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const createAgentSchema = z.object({
   tenantId: z.string().cuid(),
   name: z.string().min(1).max(100),
