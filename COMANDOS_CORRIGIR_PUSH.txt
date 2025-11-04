@@ -1,0 +1,22 @@
+# COMANDOS PARA CORRIGIR O PUSH BLOQUEADO
+
+# Execute estes comandos no PowerShell, na ordem:
+
+# 1. Remover .env do git (mas manter o arquivo local)
+git rm --cached .env
+
+# 2. Adicionar .gitignore atualizado
+git add .gitignore
+
+# 3. Fazer commit corrigindo
+git commit --amend --no-edit
+
+# 4. OU fazer novo commit
+git commit -m "fix: remove .env from repository, add to .gitignore"
+
+# 5. Fazer push (forçado se necessário)
+git push --force
+
+# OU se preferir manter histórico:
+git push
+

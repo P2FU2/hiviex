@@ -13,20 +13,33 @@ export async function GET() {
     const session = await getAuthSession()
     
     // Check if user has completed onboarding
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { onboardingCompleted: true },
-    })
+    // Handle case where field might not exist yet
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { onboardingCompleted: true },
+      })
 
-    return NextResponse.json({
-      completed: user?.onboardingCompleted || false,
-    })
+      return NextResponse.json({
+        completed: user?.onboardingCompleted || false,
+      })
+    } catch (error: any) {
+      // If field doesn't exist, assume not completed
+      if (error?.code === 'P2009' || error?.message?.includes('onboardingCompleted')) {
+        return NextResponse.json({
+          completed: false,
+          warning: 'Field may not exist yet. Run: npx prisma db push',
+        })
+      }
+      throw error
+    }
   } catch (error) {
     console.error('Error checking onboarding status:', error)
-    return NextResponse.json(
-      { error: 'Failed to check onboarding status' },
-      { status: 500 }
-    )
+    // Return not completed as default
+    return NextResponse.json({
+      completed: false,
+      error: 'Failed to check onboarding status',
+    })
   }
 }
 
