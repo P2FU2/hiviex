@@ -6,7 +6,10 @@
 import NextAuth from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authOptions)
+const { handlers, auth, signIn, signOut } = NextAuth(authOptions)
 
-export const { GET, POST } = handlers
+export { auth, signIn, signOut }
+
+export const GET = handlers.GET
+export const POST = handlers.POST
 
