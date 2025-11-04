@@ -125,13 +125,16 @@ export default function VantaTrunk({
     // Load Three.js first (required dependency for Vanta TRUNK)
     const loadThree = () => {
       return new Promise<void>((resolve) => {
+        // Check if THREE is already loaded
         if ((window as any).THREE) {
           resolve()
           return
         }
 
+        // Check if script is already being loaded
         const existingThree = document.querySelector('script[src*="three"]')
         if (existingThree) {
+          // Wait for existing script to load
           const checkInterval = setInterval(() => {
             if ((window as any).THREE) {
               clearInterval(checkInterval)
@@ -140,15 +143,18 @@ export default function VantaTrunk({
           }, 100)
           setTimeout(() => {
             clearInterval(checkInterval)
+            // If still not loaded after timeout, proceed anyway
             resolve()
           }, 5000)
           return
         }
 
+        // Load Three.js only if not already present
         const threeScript = document.createElement('script')
         threeScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
         threeScript.async = true
         threeScript.crossOrigin = 'anonymous'
+        threeScript.id = 'three-js-script' // Add ID to prevent duplicates
         threeScript.onload = () => {
           // Wait for THREE to be available
           const checkThree = setInterval(() => {

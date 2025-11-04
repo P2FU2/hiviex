@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "test:connections": "npx tsx scripts/test-connections.ts",
-    "test:db": "npx tsx scripts/check-db.ts"
+    "test:db": "npx tsx scripts/check-db.ts",
+    "test:db:connection": "npx tsx scripts/test-db-connection.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
