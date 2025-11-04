@@ -13,6 +13,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    // Get database connection info first (even if DATABASE_URL is not set)
+    const dbInfo = getDatabaseInfo()
+    
     // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
       return NextResponse.json(
@@ -20,13 +23,23 @@ export async function GET() {
           status: 'error',
           message: 'DATABASE_URL is not configured',
           timestamp: new Date().toISOString(),
+          troubleshooting: {
+            issue: 'DATABASE_URL environment variable is not set',
+            solution: 'Configure DATABASE_URL in Render Dashboard → Your Service → Environment',
+            steps: [
+              '1. Go to Render Dashboard',
+              '2. Select your Web Service',
+              '3. Click on "Environment" tab',
+              '4. Add DATABASE_URL with your Internal Database URL',
+              '5. Format: postgresql://user:pass@dpg-xxx-a:5432/db',
+              '6. Save and redeploy'
+            ],
+            connection: dbInfo,
+          },
         },
         { status: 500 }
       )
     }
-
-    // Get database connection info
-    const dbInfo = getDatabaseInfo()
 
     // Test basic connection
     await prisma.$connect()

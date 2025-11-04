@@ -2,26 +2,41 @@
  * Sign In Intercept Page
  * 
  * Intercepts NextAuth default signin page and shows friendly message
+ * For OAuth callbacks, redirects to dashboard if user is authenticated
  */
 
 'use client'
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { AlertCircle, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export default function SignInInterceptPage() {
   const router = useRouter()
+  const { data: session, status } = useSession()
 
   useEffect(() => {
-    // Redirect to home after 3 seconds
+    // If user is authenticated (likely OAuth callback), redirect immediately to dashboard
+    if (status === 'authenticated' && session) {
+      router.replace('/dashboard')
+      return
+    }
+
+    // If session is loading, wait a bit (OAuth callbacks might take a moment)
+    if (status === 'loading') {
+      return // Wait for status to change
+    }
+
+    // If not authenticated, redirect to home after 3 seconds
+    // This handles direct access to /signin page
     const timer = setTimeout(() => {
       router.push('/')
     }, 3000)
 
     return () => clearTimeout(timer)
-  }, [router])
+  }, [router, status, session])
 
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">

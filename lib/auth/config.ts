@@ -130,8 +130,9 @@ export const authOptions = {
     strategy: 'jwt' as const,
   },
   // Using modal popup for signin - intercept page shows friendly message
+  // Note: For OAuth, we don't use the signIn page - we redirect directly
   pages: {
-    signIn: '/signin', // Intercept page with friendly message
+    signIn: '/signin', // Intercept page for direct access (not used for OAuth)
     signOut: '/',
     error: '/auth/error',
   },
@@ -149,11 +150,23 @@ export const authOptions = {
       return session
     },
     async redirect({ url, baseUrl }: any) {
-      // Redirect to dashboard after successful login
+      // If URL is the signin intercept page, redirect to dashboard instead
+      // This handles OAuth callbacks that might try to go to /signin
+      if (url === `${baseUrl}/signin` || url.includes('/signin')) {
+        return `${baseUrl}/dashboard`
+      }
+      
+      // If URL is a callback URL, redirect to dashboard
+      if (url.includes('/api/auth/callback')) {
+        return `${baseUrl}/dashboard`
+      }
+      
+      // If URL is within our app, use it
       if (url.startsWith(baseUrl)) {
         return url
       }
-      // If no callback URL, redirect to dashboard
+      
+      // Default: redirect to dashboard after successful login
       return `${baseUrl}/dashboard`
     },
   },
