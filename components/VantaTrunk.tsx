@@ -29,7 +29,7 @@ declare global {
         destroy: () => void
       }
     }
-    p5?: any
+    THREE?: any
   }
 }
 
@@ -66,7 +66,8 @@ export default function VantaTrunk({
     const checkAndInit = () => {
       if (!mounted || !containerRef.current) return false
       
-      if (window.VANTA && typeof window.VANTA.TRUNK === 'function' && window.p5) {
+      // Vanta TRUNK needs Three.js, not p5.js
+      if (window.VANTA && typeof window.VANTA.TRUNK === 'function' && (window as any).THREE) {
         initVanta()
         setIsLoaded(true)
         return true
@@ -121,18 +122,18 @@ export default function VantaTrunk({
       return
     }
 
-    // Load p5.js first (required dependency)
-    const loadP5 = () => {
+    // Load Three.js first (required dependency for Vanta TRUNK)
+    const loadThree = () => {
       return new Promise<void>((resolve) => {
-        if (window.p5) {
+        if ((window as any).THREE) {
           resolve()
           return
         }
 
-        const existingP5 = document.querySelector('script[src*="p5"]')
-        if (existingP5) {
+        const existingThree = document.querySelector('script[src*="three"]')
+        if (existingThree) {
           const checkInterval = setInterval(() => {
-            if (window.p5) {
+            if ((window as any).THREE) {
               clearInterval(checkInterval)
               resolve()
             }
@@ -144,28 +145,28 @@ export default function VantaTrunk({
           return
         }
 
-        const p5Script = document.createElement('script')
-        p5Script.src = 'https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js'
-        p5Script.async = true
-        p5Script.crossOrigin = 'anonymous'
-        p5Script.onload = () => {
-          // Wait for p5 to be available
-          const checkP5 = setInterval(() => {
-            if (window.p5) {
-              clearInterval(checkP5)
+        const threeScript = document.createElement('script')
+        threeScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
+        threeScript.async = true
+        threeScript.crossOrigin = 'anonymous'
+        threeScript.onload = () => {
+          // Wait for THREE to be available
+          const checkThree = setInterval(() => {
+            if ((window as any).THREE) {
+              clearInterval(checkThree)
               resolve()
             }
           }, 50)
           setTimeout(() => {
-            clearInterval(checkP5)
+            clearInterval(checkThree)
             resolve()
           }, 3000)
         }
-        p5Script.onerror = () => {
-          console.error('Failed to load p5.js')
+        threeScript.onerror = () => {
+          console.error('Failed to load Three.js')
           resolve()
         }
-        document.head.appendChild(p5Script)
+        document.head.appendChild(threeScript)
       })
     }
 
@@ -218,7 +219,7 @@ export default function VantaTrunk({
     }
 
     // Load scripts in sequence
-    loadP5()
+    loadThree()
       .then(() => loadVanta())
       .then(() => {
         if (mounted) {
