@@ -7,6 +7,8 @@
 import { getAuthSession } from '@/lib/auth/session'
 import { CreditCard } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function BillingPage() {
   const session = await getAuthSession()
 

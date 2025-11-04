@@ -15,12 +15,16 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // Validate and normalize DATABASE_URL
+// Note: During build time, DATABASE_URL might not be available
+// We'll validate it at runtime when actually used
 let databaseUrl: string | undefined = process.env.DATABASE_URL
 
 if (!databaseUrl) {
-  console.error('⚠️  DATABASE_URL is not set in environment variables')
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('DATABASE_URL is required in production')
+  // Only warn, don't throw during build
+  // Will fail at runtime when actually used if not set
+  if (typeof window === 'undefined') {
+    // Server-side only
+    console.warn('⚠️  DATABASE_URL is not set in environment variables')
   }
 } else {
   // Normalize the URL (add SSL params if needed)

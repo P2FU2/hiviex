@@ -7,6 +7,8 @@
 import { getAuthSession } from '@/lib/auth/session'
 import { Settings } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SettingsPage() {
   const session = await getAuthSession()
 

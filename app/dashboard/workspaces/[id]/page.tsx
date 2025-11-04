@@ -12,6 +12,8 @@ import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { Settings, Bot, MessageSquare, Users } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function WorkspaceDetailPage({
   params,
 }: {

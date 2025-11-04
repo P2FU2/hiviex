@@ -9,6 +9,8 @@ import { getUserTenants } from '@/lib/utils/tenant'
 import Link from 'next/link'
 import { Plus, Settings, Users as UsersIcon } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function WorkspacesPage() {
   const session = await getAuthSession()
   // getAuthSession guarantees session.user.id exists

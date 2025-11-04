@@ -7,6 +7,8 @@
 import { getAuthSession } from '@/lib/auth/session'
 import { MessageSquare } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ChatPage() {
   const session = await getAuthSession()
 

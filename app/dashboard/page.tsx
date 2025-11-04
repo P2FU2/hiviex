@@ -10,6 +10,8 @@ import { getUserTenants } from '@/lib/utils/tenant'
 import Link from 'next/link'
 import { Plus, Users, Bot, Workflow, TrendingUp } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   const session = await getAuthSession()
   // getAuthSession guarantees session.user.id exists

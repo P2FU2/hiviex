@@ -8,6 +8,8 @@ import { getAuthSession } from '@/lib/auth/session'
 import Link from 'next/link'
 import { Plus, Bot } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AgentsPage() {
   const session = await getAuthSession()
 

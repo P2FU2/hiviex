@@ -7,6 +7,8 @@
 import { getAuthSession } from '@/lib/auth/session'
 import { Workflow } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function WorkflowsPage() {
   const session = await getAuthSession()
 
