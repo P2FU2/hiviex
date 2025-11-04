@@ -3,9 +3,11 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
+import SessionProvider from '@/components/providers/SessionProvider'
 import Cursor from '@/components/Cursor'
 import CookieConsent from '@/components/CookieConsent'
 import AuthModal from '@/components/AuthModal'
+import Onboarding from '@/components/Onboarding'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -47,14 +49,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider>
-          <AuthProvider>
-            <Cursor />
-            <CookieConsent />
-            <AuthModal />
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <Cursor />
+              <CookieConsent />
+              <AuthModal />
+              <Onboarding />
+              {children}
+            </AuthProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   )

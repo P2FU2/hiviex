@@ -11,7 +11,8 @@
 
 import { useState, FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Mail, Lock, User } from 'lucide-react'
+import { X, Mail, Lock, User, Github, Chrome } from 'lucide-react'
+import { signIn } from 'next-auth/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ANIMATION_DURATION } from '@/lib/constants'
 
@@ -50,6 +51,17 @@ export default function AuthModal() {
     setName('')
     const newMode = authModalMode === 'login' ? 'signup' : 'login'
     openAuthModal(newMode)
+  }
+
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+    try {
+      await signIn(provider, {
+        callbackUrl: '/dashboard',
+        redirect: true,
+      })
+    } catch (err) {
+      setError(`Failed to sign in with ${provider}. Please check your configuration.`)
+    }
   }
 
   if (!authModalOpen) return null
@@ -105,6 +117,41 @@ export default function AuthModal() {
                   <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </div>
               )}
+
+              {/* OAuth Buttons */}
+              <div className="space-y-3 mb-6">
+                <button
+                  type="button"
+                  onClick={() => handleOAuthSignIn('google')}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-900 dark:bg-gray-800 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Chrome className="w-5 h-5 text-white" />
+                  <span className="font-medium">Continue with Google</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOAuthSignIn('github')}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-900 dark:bg-gray-800 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Github className="w-5 h-5" />
+                  <span className="font-medium">Continue with GitHub</span>
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300 dark:border-white/20"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white dark:bg-black text-gray-500 dark:text-gray-400">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">

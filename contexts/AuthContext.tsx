@@ -54,35 +54,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Login function
-   * Currently uses mock authentication. Will be replaced with API call.
+   * Uses NextAuth credentials provider to authenticate
    */
   const login = async (email: string, password: string): Promise<void> => {
     setIsLoading(true)
     
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password })
-      // })
-      // const data = await response.json()
+      // Use NextAuth signIn with credentials
+      const { signIn } = await import('next-auth/react')
       
-      // Mock implementation for now
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockUser: User = {
-        id: '1',
+      const result = await signIn('credentials', {
         email,
-        name: email.split('@')[0],
+        password,
+        redirect: true,
+        callbackUrl: '/dashboard',
+      })
+
+      if (result?.error) {
+        throw new Error(result.error)
       }
-      
-      setUser(mockUser)
-      localStorage.setItem('user', JSON.stringify(mockUser))
+
       setAuthModalOpen(false)
     } catch (error) {
       console.error('Login error:', error)
-      throw new Error('Login failed. Please check your credentials.')
+      throw new Error(
+        error instanceof Error ? error.message : 'Login failed. Please check your credentials.'
+      )
     } finally {
       setIsLoading(false)
     }
@@ -90,35 +87,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Signup function
-   * Currently uses mock authentication. Will be replaced with API call.
+   * Creates a new user account via API, then automatically logs in
    */
   const signup = async (email: string, password: string, name?: string): Promise<void> => {
     setIsLoading(true)
     
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/auth/signup', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password, name })
-      // })
-      // const data = await response.json()
-      
-      // Mock implementation for now
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: name || email.split('@')[0],
+      // Register user via API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create account')
       }
+
+      // After successful registration, automatically log in
+      const { signIn } = await import('next-auth/react')
       
-      setUser(mockUser)
-      localStorage.setItem('user', JSON.stringify(mockUser))
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: true,
+        callbackUrl: '/dashboard',
+      })
+
+      if (result?.error) {
+        throw new Error(result.error)
+      }
+
+      // Close modal
       setAuthModalOpen(false)
     } catch (error) {
       console.error('Signup error:', error)
-      throw new Error('Signup failed. Please try again.')
+      throw error
     } finally {
       setIsLoading(false)
     }

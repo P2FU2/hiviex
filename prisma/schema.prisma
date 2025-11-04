@@ -1,0 +1,315 @@
+// Prisma Schema para Plataforma HIVIEX SaaS
+// Multi-tenant com RBAC, Agentes de IA, Chat, Workflows e Billing
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TENANT & ORGANIZATION
+// ============================================
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users        TenantUser[]
+  agents       Agent[]
+  workflows    Workflow[]
+  subscriptions Subscription[]
+  messages     Message[]
+
+  @@index([slug])
+  @@map("tenants")
+}
+
+model TenantUser {
+  id        String     @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      TenantRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_users")
+}
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String    @unique
+  emailVerified       DateTime?
+  image               String?
+  onboardingCompleted Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  tenantMembers TenantUser[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// AGENTS
+// ============================================
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+}
+
+model Agent {
+  id          String      @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?     @db.Text
+  personality String      @db.Text // System prompt / personality
+  status      AgentStatus @default(DRAFT)
+  
+  // LLM Configuration
+  provider    String      @default("openai") // openai, anthropic, etc.
+  model       String      @default("gpt-4")
+  temperature Float       @default(0.7)
+  maxTokens   Int?
+  
+  // Media
+  avatarUrl   String?
+  videoUrl    String?
+  
+  // Metadata
+  metadata    Json?       // Flexible JSON for custom configs
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  workflows   WorkflowAgent[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("agents")
+}
+
+// ============================================
+// CHAT & MESSAGES
+// ============================================
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  tenantId  String
+  agentId   String
+  role      MessageRole
+  content   String      @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  // Relations
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent     Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, agentId, createdAt])
+  @@index([agentId])
+  @@map("messages")
+}
+
+// ============================================
+// WORKFLOWS
+// ============================================
+
+enum WorkflowStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model Workflow {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?        @db.Text
+  status      WorkflowStatus @default(PAUSED)
+  config      Json           // Workflow definition (n8n-style or custom)
+  webhookUrl  String?        @unique
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agents      WorkflowAgent[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("workflows")
+}
+
+model WorkflowAgent {
+  id         String   @id @default(cuid())
+  workflowId String
+  agentId    String
+  order      Int
+  createdAt  DateTime @default(now())
+
+  // Relations
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, agentId])
+  @@index([workflowId])
+  @@index([agentId])
+  @@map("workflow_agents")
+}
+
+// ============================================
+// BILLING & SUBSCRIPTIONS
+// ============================================
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  INCOMPLETE
+}
+
+enum PlanType {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  tenantId              String             @unique
+  stripeCustomerId      String?            @unique
+  stripeSubscriptionId  String?            @unique
+  stripePriceId         String?
+  status                SubscriptionStatus @default(INCOMPLETE)
+  planType              PlanType           @default(FREE)
+  
+  // Usage limits
+  monthlyRequests       Int                @default(0)
+  monthlyRequestsLimit  Int                @default(100) // FREE plan default
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  // Relations
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usageRecords          UsageRecord[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model UsageRecord {
+  id            String   @id @default(cuid())
+  subscriptionId String
+  date          DateTime @default(now())
+  requests      Int      @default(0)
+  tokens        Int?     // Token usage for LLM
+  metadata      Json?
+
+  // Relations
+  subscription  Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, date])
+  @@map("usage_records")
+}
+
+// ============================================
+// VECTOR EMBEDDINGS (pgvector)
+// ============================================
+
+model Embedding {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  embedding Unsupported("vector(1536)") // OpenAI embedding dimension
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Note: Vector index must be created manually via SQL:
+  // CREATE INDEX IF NOT EXISTS embeddings_embedding_idx ON embeddings USING ivfflat (embedding vector_l2_ops);
+  @@map("embeddings")
+}
+
