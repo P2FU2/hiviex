@@ -5,7 +5,7 @@
  * Compatible with NextAuth v5 beta
  */
 
-import { auth } from '@/app/api/auth/[...nextauth]/route'
+import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
 /**
