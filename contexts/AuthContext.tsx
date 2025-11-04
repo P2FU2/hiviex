@@ -63,18 +63,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Use NextAuth signIn with credentials
       const { signIn } = await import('next-auth/react')
       
+      // Use redirect: false to check for errors first
       const result = await signIn('credentials', {
         email,
         password,
-        redirect: true,
+        redirect: false,
         callbackUrl: '/dashboard',
       })
 
+      // Check for errors
       if (result?.error) {
         throw new Error(result.error)
       }
 
-      setAuthModalOpen(false)
+      // If successful, redirect manually
+      if (result?.ok) {
+        setAuthModalOpen(false)
+        window.location.href = '/dashboard'
+      }
     } catch (error) {
       console.error('Login error:', error)
       throw new Error(
@@ -109,19 +115,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // After successful registration, automatically log in
       const { signIn } = await import('next-auth/react')
       
+      // Use redirect: false to check for errors first
       const result = await signIn('credentials', {
         email,
         password,
-        redirect: true,
+        redirect: false,
         callbackUrl: '/dashboard',
       })
 
+      // Check for errors
       if (result?.error) {
         throw new Error(result.error)
       }
 
-      // Close modal
-      setAuthModalOpen(false)
+      // If successful, redirect manually and close modal
+      if (result?.ok) {
+        setAuthModalOpen(false)
+        window.location.href = '/dashboard'
+      }
     } catch (error) {
       console.error('Signup error:', error)
       throw error
