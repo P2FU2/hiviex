@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { getDatabaseInfo } from '@/lib/db/connection'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,9 @@ export async function GET() {
         { status: 500 }
       )
     }
+
+    // Get database connection info
+    const dbInfo = getDatabaseInfo()
 
     // Test basic connection
     await prisma.$connect()
@@ -50,6 +54,12 @@ export async function GET() {
         users: userCount,
         tenants: tenantCount,
         pgvector: extensions.length > 0,
+        connection: {
+          host: dbInfo.host,
+          database: dbInfo.database,
+          isInternal: dbInfo.isInternal,
+          isExternal: dbInfo.isExternal,
+        },
       },
     })
   } catch (error: any) {

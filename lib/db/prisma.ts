@@ -3,19 +3,32 @@
  * 
  * Ensures we only create one instance of PrismaClient in development
  * to avoid multiple connections during hot reload.
+ * 
+ * Handles both Internal and External Database URLs for Render
  */
 
 import { PrismaClient } from '@prisma/client'
+import { normalizeDatabaseUrl } from './connection'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Validate DATABASE_URL before creating PrismaClient
-if (!process.env.DATABASE_URL) {
+// Validate and normalize DATABASE_URL
+let databaseUrl: string | undefined = process.env.DATABASE_URL
+
+if (!databaseUrl) {
   console.error('⚠️  DATABASE_URL is not set in environment variables')
   if (process.env.NODE_ENV === 'production') {
     throw new Error('DATABASE_URL is required in production')
+  }
+} else {
+  // Normalize the URL (add SSL params if needed)
+  try {
+    databaseUrl = normalizeDatabaseUrl(databaseUrl)
+  } catch (error) {
+    console.error('⚠️  Error normalizing DATABASE_URL:', error)
+    // Continue with original URL if normalization fails
   }
 }
 
@@ -25,7 +38,7 @@ export const prisma =
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: databaseUrl,
       },
     },
   })

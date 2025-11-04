@@ -92,10 +92,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (error.message?.includes('prisma')) {
+    // Database connection errors
+    if (error.code === 'P1001' || error.code === 'P1000' || error.code === 'P1011') {
+      console.error('Database connection error:', error.code, error.message)
+      return NextResponse.json(
+        { 
+          error: 'Database connection error. Please try again later.',
+          code: error.code,
+          hint: getConnectionHint(error.code)
+        },
+        { status: 500 }
+      )
+    }
+
+    if (error.message?.includes('prisma') || error.message?.includes('database')) {
       console.error('Database error:', error)
       return NextResponse.json(
-        { error: 'Database connection error. Please try again later.' },
+        { 
+          error: 'Database connection error. Please try again later.',
+          code: error.code || 'UNKNOWN'
+        },
         { status: 500 }
       )
     }
@@ -107,6 +123,19 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     )
+  }
+}
+
+function getConnectionHint(errorCode: string): string {
+  switch (errorCode) {
+    case 'P1001':
+      return 'Cannot reach database server. Check DATABASE_URL and network settings.'
+    case 'P1000':
+      return 'Authentication failed. Check database credentials.'
+    case 'P1011':
+      return 'TLS error. Ensure SSL is properly configured.'
+    default:
+      return 'Check server logs for more details.'
   }
 }
 
