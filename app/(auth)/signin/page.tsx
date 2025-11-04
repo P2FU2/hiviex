@@ -32,7 +32,7 @@ export default function SignInInterceptPage() {
             Use o Modal de Login
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Para fazer login, use o botão "Login" ou "Sign Up" no topo da página.
+            Para fazer login, use o botão &quot;Login&quot; ou &quot;Sign Up&quot; no topo da página.
             <br />
             <br />
             Esta página não deve ser acessada diretamente.

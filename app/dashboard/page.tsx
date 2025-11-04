@@ -101,7 +101,7 @@ export default async function DashboardPage() {
           <div className="text-center py-12">
             <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              You don't have any workspaces yet
+              You don&apos;t have any workspaces yet
             </p>
             <Link
               href="/dashboard/workspaces/new"
