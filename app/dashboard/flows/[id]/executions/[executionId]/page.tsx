@@ -122,7 +122,7 @@ export default async function FlowExecutionDetailPage({
               Execuções de Nós
             </h2>
             <div className="space-y-4">
-              {execution.nodeExecutions.map((nodeExec) => (
+              {execution.nodeExecutions.map((nodeExec: any) => (
                 <div
                   key={nodeExec.id}
                   className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"

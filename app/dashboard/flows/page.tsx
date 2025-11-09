@@ -117,7 +117,7 @@ export default async function FlowsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {flows.map((flow) => (
+          {flows.map((flow: any) => (
             <div
               key={flow.id}
               className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6 hover:shadow-xl transition-shadow"

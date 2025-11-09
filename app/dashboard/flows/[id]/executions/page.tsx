@@ -141,7 +141,7 @@ export default async function FlowExecutionsPage({
         </div>
       ) : (
         <div className="space-y-4">
-          {executions.map((execution) => (
+          {executions.map((execution: any) => (
             <Link
               key={execution.id}
               href={`/dashboard/flows/${params.id}/executions/${execution.id}`}

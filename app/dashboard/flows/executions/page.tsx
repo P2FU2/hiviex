@@ -31,7 +31,7 @@ export default async function FlowExecutionsPage() {
     },
   })
 
-  const flowIds = flows.map((f) => f.id)
+  const flowIds = flows.map((f: any) => f.id)
 
   // Get all executions
   const executions = await (prisma as any).flowExecution.findMany({
@@ -132,7 +132,7 @@ export default async function FlowExecutionsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {executions.map((execution) => (
+          {executions.map((execution: any) => (
             <div
               key={execution.id}
               className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6"
@@ -166,7 +166,7 @@ export default async function FlowExecutionsPage() {
                     Execuções de Nós:
                   </h4>
                   <div className="space-y-2">
-                    {execution.nodeExecutions.map((nodeExec) => (
+                    {execution.nodeExecutions.map((nodeExec: any) => (
                       <div
                         key={nodeExec.id}
                         className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded-lg"
