@@ -8,6 +8,7 @@ interface FlowNode {
   id: string
   type: string
   agentId?: string | null
+  processType?: string | null
   label: string
 }
 
