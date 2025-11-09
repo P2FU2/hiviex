@@ -110,7 +110,7 @@ export default async function BillingPage() {
             Assinaturas Ativas
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subscriptions.map((sub) => (
+            {subscriptions.map((sub: any) => (
               <div
                 key={sub.id}
                 className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6"
@@ -166,7 +166,7 @@ export default async function BillingPage() {
           Escolha seu Plano
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PLANS.map((plan) => {
+          {PLANS.map((plan: any) => {
             const isPopular = plan.id === 'PROFESSIONAL'
             return (
               <div
@@ -196,7 +196,7 @@ export default async function BillingPage() {
                   </div>
                 </div>
                 <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, idx) => (
+                  {plan.features.map((feature: any, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
                       <Check className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                       <span className="text-sm text-gray-700 dark:text-gray-300">
