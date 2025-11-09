@@ -41,13 +41,13 @@ export async function GET(
     }
 
     // Get or create persona
-    let persona = await prisma.agentPersona.findUnique({
+    let persona = await (prisma as any).agentPersona.findUnique({
       where: { agentId },
     })
 
     if (!persona) {
       // Create default persona
-      persona = await prisma.agentPersona.create({
+      persona = await (prisma as any).agentPersona.create({
         data: {
           agentId,
           objective: 'Assistir usuários de forma eficiente e amigável',
@@ -96,7 +96,7 @@ export async function POST(
     }
 
     // Create persona
-    const persona = await prisma.agentPersona.create({
+    const persona = await (prisma as any).agentPersona.create({
       data: {
         agentId,
         objective: body.objective || 'Assistir usuários de forma eficiente e amigável',
@@ -156,7 +156,7 @@ export async function PUT(
     }
 
     // Update or create persona
-    const persona = await prisma.agentPersona.upsert({
+    const persona = await (prisma as any).agentPersona.upsert({
       where: { agentId },
       update: {
         objective: body.objective,
