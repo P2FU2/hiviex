@@ -9,9 +9,9 @@ import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Play } from 'lucide-react'
-import { ExecutionStatus } from '@prisma/client'
-
 export const dynamic = 'force-dynamic'
+
+type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 export default async function FlowExecutionsPage({
   params,
