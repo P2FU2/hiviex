@@ -4,7 +4,7 @@
  * Executa nós do tipo PROCESS (tarefas, automações, integrações)
  */
 
-import { ProcessType } from '@prisma/client'
+type ProcessType = 'TASK' | 'RULE' | 'AUTOMATION' | 'TRIGGER' | 'INTEGRATION'
 import { FlowContext, NodeExecutionResult, ExecutionLogEntry } from '../execution-engine'
 
 interface FlowNode {
@@ -24,7 +24,7 @@ export class ProcessProcessor {
     const startTime = Date.now()
 
     try {
-      const processType = node.processType || ProcessType.TASK
+      const processType = node.processType || 'TASK'
       const config = (node.config || {}) as Record<string, any>
 
       logs.push({
@@ -41,19 +41,19 @@ export class ProcessProcessor {
       let output: any
 
       switch (processType) {
-        case ProcessType.TASK:
+        case 'TASK':
           output = await this.executeTask(node, input, config, logs)
           break
-        case ProcessType.AUTOMATION:
+        case 'AUTOMATION':
           output = await this.executeAutomation(node, input, config, logs)
           break
-        case ProcessType.INTEGRATION:
+        case 'INTEGRATION':
           output = await this.executeIntegration(node, input, config, logs)
           break
-        case ProcessType.TRIGGER:
+        case 'TRIGGER':
           output = await this.executeTrigger(node, input, config, logs)
           break
-        case ProcessType.RULE:
+        case 'RULE':
           output = await this.executeRule(node, input, config, logs)
           break
         default:

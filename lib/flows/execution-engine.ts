@@ -6,7 +6,9 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import { NodeType, ProcessType, ExecutionStatus } from '@prisma/client'
+type NodeType = 'AGENT' | 'PROCESS' | 'TRIGGER' | 'CONDITION' | 'INTEGRATION'
+type ProcessType = 'TASK' | 'RULE' | 'AUTOMATION' | 'TRIGGER' | 'INTEGRATION'
+type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 import { AgentProcessor } from './processors/agent-processor'
 import { ProcessProcessor } from './processors/process-processor'
 import { ConditionProcessor } from './processors/condition-processor'
