@@ -124,11 +124,11 @@ function checkCircularDependency(
     return false
   }
 
-  for (const nodeId of graph.keys()) {
+  Array.from(graph.keys()).forEach((nodeId) => {
     if (!visited.has(nodeId)) {
       if (hasCycle(nodeId)) return true
     }
-  }
+  })
 
   return false
 }

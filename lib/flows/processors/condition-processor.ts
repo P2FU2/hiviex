@@ -90,13 +90,13 @@ export class ConditionProcessor {
     const input: Record<string, any> = {}
 
     // Merge outputs from previous nodes
-    for (const [nodeId, output] of context.nodeOutputs.entries()) {
+    Array.from(context.nodeOutputs.entries()).forEach(([nodeId, output]) => {
       if (typeof output === 'object' && output !== null) {
         Object.assign(input, output)
       } else {
         input[nodeId] = output
       }
-    }
+    })
 
     // Include global variables
     Object.assign(input, context.variables)

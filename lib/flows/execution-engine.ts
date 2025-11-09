@@ -99,11 +99,11 @@ export class FlowExecutionEngine {
     )
 
     // Nodes without incoming connections are ready
-    for (const nodeId of nodeIds) {
+    Array.from(nodeIds).forEach((nodeId) => {
       if (!hasIncomingConnections.has(nodeId)) {
         this.readyNodes.add(nodeId)
       }
-    }
+    })
   }
 
   /**
@@ -321,11 +321,11 @@ export class FlowExecutionEngine {
   private getReadyNodes(): string[] {
     const ready: string[] = []
 
-    for (const nodeId of this.nodes.keys()) {
+    Array.from(this.nodes.keys()).forEach((nodeId) => {
       if (this.isNodeReady(nodeId)) {
         ready.push(nodeId)
       }
-    }
+    })
 
     return ready
   }
