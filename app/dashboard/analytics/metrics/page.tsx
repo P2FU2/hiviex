@@ -43,7 +43,7 @@ export default async function AnalyticsMetricsPage() {
 
   const calculateTotals = (data: any[]) => {
     return data.reduce(
-      (acc, item) => ({
+      (acc: any, item: any) => ({
         reach: acc.reach + (item.reach || 0),
         impressions: acc.impressions + (item.impressions || 0),
         clicks: acc.clicks + Math.round((item.impressions || 0) * (item.ctr || 0) / 100),

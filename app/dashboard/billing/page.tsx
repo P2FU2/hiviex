@@ -74,7 +74,7 @@ export default async function BillingPage() {
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
   // Get subscriptions
-  const subscriptions = await prisma.subscription.findMany({
+  const subscriptions = await (prisma as any).subscription.findMany({
     where: {
       tenantId: { in: tenantIds },
     },

@@ -25,7 +25,7 @@ export default async function FlowExecutionsPage({
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
   // Get flow
-  const flow = await prisma.flow.findFirst({
+  const flow = await (prisma as any).flow.findFirst({
     where: {
       id: params.id,
       tenantId: { in: tenantIds },
@@ -51,7 +51,7 @@ export default async function FlowExecutionsPage({
   }
 
   // Get executions
-  const executions = await prisma.flowExecution.findMany({
+  const executions = await (prisma as any).flowExecution.findMany({
     where: {
       flowId: params.id,
     },

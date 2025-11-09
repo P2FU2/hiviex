@@ -56,7 +56,7 @@ export default async function WorkflowDetailPage({
   }
 
   // Get flows for this workflow
-  const flows = await prisma.flow.findMany({
+  const flows = await (prisma as any).flow.findMany({
     where: {
       tenantId: workflow.tenantId,
       // In production, add workflowId to Flow model

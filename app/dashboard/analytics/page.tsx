@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
 
   // Calculate totals
   const totals = analytics.reduce(
-    (acc, item) => ({
+    (acc: any, item: any) => ({
       reach: acc.reach + (item.reach || 0),
       impressions: acc.impressions + (item.impressions || 0),
       clicks: acc.clicks + Math.round((item.impressions || 0) * (item.ctr || 0) / 100),
@@ -51,7 +51,7 @@ export default async function AnalyticsPage() {
     : 0
 
   // Group by channel
-  const byChannel = analytics.reduce((acc: any, item) => {
+  const byChannel = analytics.reduce((acc: any, item: any) => {
     const channel = item.channel || 'Outros'
     if (!acc[channel]) {
       acc[channel] = {

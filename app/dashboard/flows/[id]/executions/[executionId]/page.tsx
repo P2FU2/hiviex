@@ -25,7 +25,7 @@ export default async function FlowExecutionDetailPage({
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
   // Get execution
-  const execution = await prisma.flowExecution.findFirst({
+  const execution = await (prisma as any).flowExecution.findFirst({
     where: {
       id: params.executionId,
       flowId: params.id,
@@ -60,7 +60,7 @@ export default async function FlowExecutionDetailPage({
   }
 
   // Check access
-  const flow = await prisma.flow.findFirst({
+  const flow = await (prisma as any).flow.findFirst({
     where: {
       id: params.id,
       tenantId: { in: tenantIds },
