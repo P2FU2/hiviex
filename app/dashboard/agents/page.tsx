@@ -10,9 +10,9 @@ import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { Plus, Bot, Edit, Trash2, MessageSquare, Settings } from 'lucide-react'
 import DeleteAgentButton from '@/components/DeleteAgentButton'
-import { AgentStatus } from '@prisma/client'
-
 export const dynamic = 'force-dynamic'
+
+type AgentStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT'
 
 export default async function AgentsPage() {
   const session = await getAuthSession()
@@ -140,7 +140,7 @@ export default async function AgentsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {workspaceAgents.map((agent) => (
+                  {workspaceAgents.map((agent: any) => (
                     <div
                       key={agent.id}
                       className="p-4 border border-gray-200/50 dark:border-white/10 rounded-lg hover:border-black dark:hover:border-white transition-colors bg-white/50 dark:bg-black/50"

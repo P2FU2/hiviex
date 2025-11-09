@@ -6,7 +6,7 @@
 
 import { getAuthSession } from '@/lib/auth/session'
 import { getTenantWithUser, hasTenantPermission } from '@/lib/utils/tenant'
-import { TenantRole } from '@prisma/client'
+type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
@@ -46,7 +46,7 @@ export default async function WorkspaceDetailPage({
     prisma.message.count({
       where: { tenantId: params.id },
     }),
-    prisma.tenantUser.count({
+    (prisma as any).tenantUser.count({
       where: { tenantId: params.id },
     }),
   ])

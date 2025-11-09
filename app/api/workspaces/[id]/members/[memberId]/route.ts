@@ -8,9 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
-import { TenantRole } from '@prisma/client'
-
 export const dynamic = 'force-dynamic'
+
+type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 
 export async function PUT(
   request: NextRequest,
@@ -39,7 +39,7 @@ export async function PUT(
     const { role } = body
 
     // Check if member exists
-    const member = await prisma.tenantUser.findUnique({
+    const member = await (prisma as any).tenantUser.findUnique({
       where: { id: memberId },
     })
 
@@ -63,7 +63,7 @@ export async function PUT(
     }
 
     // Update member role
-    const updatedMember = await prisma.tenantUser.update({
+    const updatedMember = await (prisma as any).tenantUser.update({
       where: { id: memberId },
       data: { role: role as TenantRole },
       include: {
@@ -115,7 +115,7 @@ export async function DELETE(
     }
 
     // Check if member exists
-    const member = await prisma.tenantUser.findUnique({
+    const member = await (prisma as any).tenantUser.findUnique({
       where: { id: memberId },
     })
 
@@ -140,7 +140,7 @@ export async function DELETE(
     }
 
     // Remove member
-    await prisma.tenantUser.delete({
+    await (prisma as any).tenantUser.delete({
       where: { id: memberId },
     })
 

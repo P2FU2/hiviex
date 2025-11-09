@@ -142,7 +142,7 @@ export default function SettingsPage() {
   const handleUpdateApiKey = (keyId: string, field: string, value: any) => {
     setSettings((prev) => ({
       ...prev,
-      apiKeys: prev.apiKeys.map((k) =>
+      apiKeys: prev.apiKeys.map((k: any) =>
         k.id === keyId ? { ...k, [field]: value } : k
       ),
     }))
@@ -206,7 +206,7 @@ export default function SettingsPage() {
               Adicionar API Key:
             </p>
             <div className="flex flex-wrap gap-2 mb-3">
-              {PROVIDERS.map((provider) => {
+              {PROVIDERS.map((provider: any) => {
                 const hasKey = settings.apiKeys.some((k) => k.provider === provider.id && !k.isCustom)
                 return (
                   <button
@@ -271,7 +271,7 @@ export default function SettingsPage() {
                 </p>
               </div>
             ) : (
-              settings.apiKeys.map((apiKey) => {
+              settings.apiKeys.map((apiKey: any) => {
                 const provider = PROVIDERS.find((p) => p.id === apiKey.provider)
                 return (
                   <div

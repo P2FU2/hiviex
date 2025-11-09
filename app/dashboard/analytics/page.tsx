@@ -189,7 +189,7 @@ export default async function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {channelStats.map((stat, idx) => (
+                {channelStats.map((stat: any, idx: number) => (
                   <tr
                     key={idx}
                     className="border-b border-gray-200/50 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5"

@@ -7,9 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
-import { TenantRole } from '@prisma/client'
-
 export const dynamic = 'force-dynamic'
+
+type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 
 export async function POST(
   request: NextRequest,
@@ -59,7 +59,7 @@ export async function POST(
     }
 
     // Check if user is already a member
-    const existingMember = await prisma.tenantUser.findUnique({
+    const existingMember = await (prisma as any).tenantUser.findUnique({
       where: {
         tenantId_userId: {
           tenantId: workspaceId,
@@ -81,7 +81,7 @@ export async function POST(
       : (role === 'ADMIN' ? TenantRole.ADMIN : TenantRole.MEMBER)
 
     // Create membership
-    const newMember = await prisma.tenantUser.create({
+    const newMember = await (prisma as any).tenantUser.create({
       data: {
         tenantId: workspaceId,
         userId: user.id,

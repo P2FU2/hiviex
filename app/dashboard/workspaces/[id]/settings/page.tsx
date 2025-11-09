@@ -6,7 +6,7 @@
 
 import { getAuthSession } from '@/lib/auth/session'
 import { getTenantWithUser, hasTenantPermission } from '@/lib/utils/tenant'
-import { TenantRole } from '@prisma/client'
+type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Users, Shield, Bell, Key, Trash2, Settings as SettingsIcon } from 'lucide-react'
@@ -47,7 +47,7 @@ export default async function WorkspaceSettingsPage({
   // Get workspace stats
   const [agentsCount, membersCount, workflowsCount] = await Promise.all([
     prisma.agent.count({ where: { tenantId: workspaceId } }),
-    prisma.tenantUser.count({ where: { tenantId: workspaceId } }),
+    (prisma as any).tenantUser.count({ where: { tenantId: workspaceId } }),
     prisma.workflow.count({ where: { tenantId: workspaceId } }),
   ])
 
@@ -182,7 +182,7 @@ export default async function WorkspaceSettingsPage({
 
 // Helper function to get members
 async function getMembers(workspaceId: string) {
-  const members = await prisma.tenantUser.findMany({
+  const members = await (prisma as any).tenantUser.findMany({
     where: { tenantId: workspaceId },
     include: {
       user: {

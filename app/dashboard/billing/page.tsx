@@ -9,9 +9,10 @@ import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { CreditCard, Check, X, ArrowRight, Zap } from 'lucide-react'
-import { PlanType, SubscriptionStatus } from '@prisma/client'
-
 export const dynamic = 'force-dynamic'
+
+type PlanType = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
+type SubscriptionStatus = 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'INCOMPLETE'
 
 const PLANS = [
   {
