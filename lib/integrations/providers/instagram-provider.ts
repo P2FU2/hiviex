@@ -110,15 +110,22 @@ export class InstagramProvider extends BaseSocialProvider {
       // 1. Criar container de mídia
       const mediaType = mediaUrls[0]?.includes('.mp4') ? 'REELS' : 'IMAGE'
       
+      // Construir parâmetros, removendo valores undefined
+      const containerParams: Record<string, string> = {
+        access_token: tokens.accessToken,
+        caption: this.formatCaption(options.caption, options.hashtags, options.mentions),
+        media_type: mediaType,
+      }
+      
+      if (mediaType === 'IMAGE' && mediaUrls[0]) {
+        containerParams.image_url = mediaUrls[0]
+      } else if (mediaType === 'REELS' && mediaUrls[0]) {
+        containerParams.video_url = mediaUrls[0]
+      }
+      
       const containerResponse = await fetch(
         `${this.apiBaseUrl}/${igUserId}/media?` +
-        new URLSearchParams({
-          access_token: tokens.accessToken,
-          image_url: mediaType === 'IMAGE' ? mediaUrls[0] : undefined,
-          video_url: mediaType === 'REELS' ? mediaUrls[0] : undefined,
-          caption: this.formatCaption(options.caption, options.hashtags, options.mentions),
-          media_type: mediaType,
-        }),
+        new URLSearchParams(containerParams),
         { method: 'POST' }
       )
 
