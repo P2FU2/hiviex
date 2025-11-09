@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       const hasPermission = await hasTenantPermission(
         session.user.id,
         tenantId,
-        TenantRole.MEMBER
+        'MEMBER'
       )
 
       if (!hasPermission) {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const hasPermission = await hasTenantPermission(
       session.user.id,
       data.tenantId,
-      TenantRole.MEMBER
+      'MEMBER'
     )
 
     if (!hasPermission) {

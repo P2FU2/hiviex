@@ -31,7 +31,7 @@ export default async function WorkspaceDetailPage({
   const hasAccess = await hasTenantPermission(
     session.user.id,
     params.id,
-    TenantRole.MEMBER
+    'MEMBER'
   )
 
   if (!hasAccess) {

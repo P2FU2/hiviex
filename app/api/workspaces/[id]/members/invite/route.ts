@@ -77,8 +77,8 @@ export async function POST(
 
     // Only OWNER can invite ADMIN
     const finalRole = role === 'ADMIN' && membership.role !== 'OWNER' 
-      ? TenantRole.MEMBER 
-      : (role === 'ADMIN' ? TenantRole.ADMIN : TenantRole.MEMBER)
+      ? 'MEMBER' 
+      : (role === 'ADMIN' ? 'ADMIN' : 'MEMBER')
 
     // Create membership
     const newMember = await (prisma as any).tenantUser.create({
