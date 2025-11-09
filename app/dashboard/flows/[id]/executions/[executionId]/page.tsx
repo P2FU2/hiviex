@@ -11,7 +11,7 @@ import Link from 'next/link'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Play } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
-type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+import type { ExecutionStatus } from '@/lib/types/domain'
 
 export default async function FlowExecutionDetailPage({
   params,

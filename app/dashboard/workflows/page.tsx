@@ -10,9 +10,9 @@ import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { Plus, Play, Pause, Archive, Settings, Trash2, GitBranch } from 'lucide-react'
 import DeleteWorkflowButton from '@/components/DeleteWorkflowButton'
-export const dynamic = 'force-dynamic'
+import type { WorkflowStatus } from '@/lib/types/domain'
 
-type WorkflowStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
+export const dynamic = 'force-dynamic'
 
 export default async function WorkflowsPage() {
   const session = await getAuthSession()

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthSession } from '@/lib/auth/session'
 import { hasTenantPermission, getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
-type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+import type { TenantRole } from '@/lib/types/domain'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'

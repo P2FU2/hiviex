@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm run lint && npm run build",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -14,6 +16,9 @@
     "test:connections": "npx tsx scripts/test-connections.ts",
     "test:db": "npx tsx scripts/check-db.ts",
     "test:db:connection": "npx tsx scripts/test-db-connection.ts"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",

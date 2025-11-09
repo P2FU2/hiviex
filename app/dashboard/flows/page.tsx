@@ -9,9 +9,9 @@ import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { Plus, Play, Pause, Archive, Settings, Trash2 } from 'lucide-react'
-export const dynamic = 'force-dynamic'
+import type { FlowStatus } from '@/lib/types/domain'
 
-type FlowStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'DRAFT'
+export const dynamic = 'force-dynamic'
 
 export default async function FlowsPage() {
   const session = await getAuthSession()

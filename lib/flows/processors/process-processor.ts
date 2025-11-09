@@ -4,7 +4,7 @@
  * Executa nós do tipo PROCESS (tarefas, automações, integrações)
  */
 
-type ProcessType = 'TASK' | 'RULE' | 'AUTOMATION' | 'TRIGGER' | 'INTEGRATION'
+import type { ProcessType } from '@/lib/types/domain'
 import { FlowContext, NodeExecutionResult, ExecutionLogEntry } from '../execution-engine'
 
 interface FlowNode {

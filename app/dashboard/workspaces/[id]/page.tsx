@@ -6,7 +6,7 @@
 
 import { getAuthSession } from '@/lib/auth/session'
 import { getTenantWithUser, hasTenantPermission } from '@/lib/utils/tenant'
-type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+import type { TenantRole } from '@/lib/types/domain'
 import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'

@@ -10,9 +10,9 @@ import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
 import { Plus, Bot, Edit, Trash2, MessageSquare, Settings } from 'lucide-react'
 import DeleteAgentButton from '@/components/DeleteAgentButton'
-export const dynamic = 'force-dynamic'
+import type { AgentStatus } from '@/lib/types/domain'
 
-type AgentStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT'
+export const dynamic = 'force-dynamic'
 
 export default async function AgentsPage() {
   const session = await getAuthSession()
