@@ -20,7 +20,7 @@ export default async function AnalyticsReportsPage() {
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
   // Get analytics data grouped by date
-  const analytics = await prisma.analytics.findMany({
+  const analytics = await (prisma as any).analytics.findMany({
     where: {
       tenantId: { in: tenantIds },
     },
@@ -29,7 +29,7 @@ export default async function AnalyticsReportsPage() {
   })
 
   // Group by date
-  const byDate = analytics.reduce((acc: any, item) => {
+  const byDate = analytics.reduce((acc: any, item: any) => {
     const date = new Date(item.date).toLocaleDateString('pt-BR')
     if (!acc[date]) {
       acc[date] = {

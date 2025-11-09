@@ -27,13 +27,13 @@ export default async function AnalyticsMetricsPage() {
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
 
   const [currentPeriod, previousPeriod] = await Promise.all([
-    prisma.analytics.findMany({
+    (prisma as any).analytics.findMany({
       where: {
         tenantId: { in: tenantIds },
         date: { gte: thirtyDaysAgo, lt: now },
       },
     }),
-    prisma.analytics.findMany({
+    (prisma as any).analytics.findMany({
       where: {
         tenantId: { in: tenantIds },
         date: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },

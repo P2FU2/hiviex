@@ -22,7 +22,7 @@ export default async function AnalyticsPage() {
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const analytics = await prisma.analytics.findMany({
+  const analytics = await (prisma as any).analytics.findMany({
     where: {
       tenantId: { in: tenantIds },
       date: { gte: thirtyDaysAgo },
