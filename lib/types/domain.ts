@@ -14,3 +14,9 @@ export type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 export type NodeType = 'AGENT' | 'PROCESS' | 'TRIGGER' | 'CONDITION' | 'INTEGRATION'
 export type ProcessType = 'TASK' | 'RULE' | 'AUTOMATION' | 'TRIGGER' | 'INTEGRATION'
 
+// Social Media Types
+export type SocialPlatform = 'YOUTUBE' | 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'KWAII' | 'GMAIL'
+export type SocialAccountStatus = 'CONNECTED' | 'DISCONNECTED' | 'EXPIRED' | 'ERROR'
+export type PostStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHING' | 'PUBLISHED' | 'FAILED' | 'CANCELLED'
+export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
+export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'RETRYING'

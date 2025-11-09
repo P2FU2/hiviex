@@ -1,326 +1,353 @@
-# 📚 Guia de Setup - Plataforma SaaS HIVIEX
+# 🚀 Guia de Configuração Completo - HIVIEX
 
-## 🚀 Passo a Passo de Implementação
+> **⚠️ IMPORTANTE:** Se você já tem a aplicação rodando no Render, veja primeiro:
+> - `ATUALIZAR_BANCO_RENDER.md` - Para atualizar o banco com novas tabelas
+> - `docs/ATUALIZACAO_RENDER.md` - Guia completo de atualização
 
-### **FASE 1: Configuração Inicial**
+## Pré-requisitos
 
-#### 1.1 Instalar Dependências
+### 1. Node.js 20.x ou superior
+```bash
+# Verificar versão
+node -v
+
+# Se não tiver, instale: https://nodejs.org
+```
+
+### 2. PostgreSQL 15+
+```bash
+# Verificar se está instalado
+psql --version
+
+# Se não tiver, instale:
+# Windows: https://www.postgresql.org/download/windows/
+# macOS: brew install postgresql@15
+# Linux: sudo apt-get install postgresql-15
+
+# Ou use Docker:
+docker run -d \
+  --name postgres-hiviex \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=hiviex \
+  -p 5432:5432 \
+  postgres:15
+```
+
+### 3. Redis 7+
+```bash
+# Verificar se está instalado
+redis-cli --version
+
+# Se não tiver, instale:
+# Windows: https://github.com/microsoftarchive/redis/releases
+# macOS: brew install redis
+# Linux: sudo apt-get install redis-server
+
+# Ou use Docker:
+docker run -d \
+  --name redis-hiviex \
+  -p 6379:6379 \
+  redis:7-alpine
+```
+
+## Passo a Passo
+
+### 1. Clone e Instale Dependências
 
 ```bash
+# Se ainda não clonou
+git clone https://github.com/P2FU2/hiviex.git
+cd hiviex
+
+# Instalar dependências
 npm install
 ```
 
-#### 1.2 Configurar Variáveis de Ambiente
+### 2. Configurar Variáveis de Ambiente
 
-Crie um arquivo `.env` na raiz do projeto com base no `.env.example`:
+#### Opção A: Script Automático (Recomendado)
 
+**Windows (PowerShell):**
+```powershell
+.\scripts\setup.ps1
+```
+
+**Linux/macOS:**
 ```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+#### Opção B: Manual
+
+1. Copiar `.env.example` para `.env`:
+```bash
+cp .env.example .env
+```
+
+2. Editar `.env` com suas credenciais:
+```env
 # Database
 DATABASE_URL="postgresql://user:password@localhost:5432/hiviex?schema=public"
 
 # NextAuth
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="gere-uma-chave-secreta-aqui"
+NEXTAUTH_SECRET="" # Será gerado automaticamente pelo script
 
-# OAuth Providers (opcional)
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GITHUB_CLIENT_ID=""
-GITHUB_CLIENT_SECRET=""
+# Redis
+REDIS_HOST="localhost"
+REDIS_PORT="6379"
 
-# Redis (para BullMQ)
-REDIS_URL="redis://localhost:6379"
-
-# S3 Storage (Cloudflare R2 ou AWS S3)
-S3_ENDPOINT=""
-S3_REGION=""
-S3_ACCESS_KEY_ID=""
-S3_SECRET_ACCESS_KEY=""
-S3_BUCKET_NAME=""
-S3_PUBLIC_URL=""
-
-# LLM Providers
-OPENAI_API_KEY=""
-ANTHROPIC_API_KEY=""
-
-# Stripe
-STRIPE_SECRET_KEY=""
-STRIPE_PUBLISHABLE_KEY=""
-STRIPE_WEBHOOK_SECRET=""
-
-# Sentry (opcional)
-SENTRY_DSN=""
-
-# Environment
-NODE_ENV="development"
+# Encryption (para tokens OAuth)
+ENCRYPTION_KEY="" # Será gerado automaticamente pelo script
 ```
 
-**Para gerar NEXTAUTH_SECRET:**
+3. Gerar secrets:
 ```bash
+# NEXTAUTH_SECRET
 openssl rand -base64 32
+
+# ENCRYPTION_KEY
+openssl rand -hex 32
 ```
 
-#### 1.3 Configurar PostgreSQL no Render
+### 3. Configurar Banco de Dados
 
-1. Acesse [Render Dashboard](https://dashboard.render.com)
-2. Crie um novo **PostgreSQL Database**
-3. Copie a **Internal Database URL** ou **External Database URL**
-4. Cole no `.env` como `DATABASE_URL`
-5. **Importante**: Para usar pgvector, você precisará habilitar a extensão no PostgreSQL
-
-#### 1.4 Habilitar pgvector no PostgreSQL
-
-Execute no banco de dados (via Render PostgreSQL console ou psql):
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-#### 1.5 Configurar Redis (Upstash)
-
-1. Acesse [Upstash Console](https://console.upstash.com)
-2. Crie um novo **Redis Database**
-3. Copie a **Redis URL** (formato: `rediss://default:password@endpoint.upstash.io:6380`)
-4. Cole no `.env` como `REDIS_URL`
-5. **Importante**: Upstash usa TLS (rediss://) e porta 6380
-
-Veja detalhes em `docs/UPSTASH_SETUP.md`
-
----
-
-### **FASE 2: Banco de Dados**
-
-#### 2.1 Gerar Prisma Client
+#### 3.1. Criar Banco de Dados
 
 ```bash
+# Conectar ao PostgreSQL
+psql -U postgres
+
+# Criar banco
+CREATE DATABASE hiviex;
+
+# Criar usuário (opcional)
+CREATE USER hiviex_user WITH PASSWORD 'sua_senha';
+GRANT ALL PRIVILEGES ON DATABASE hiviex TO hiviex_user;
+
+# Sair
+\q
+```
+
+#### 3.2. Atualizar DATABASE_URL no .env
+
+```env
+DATABASE_URL="postgresql://hiviex_user:sua_senha@localhost:5432/hiviex?schema=public"
+```
+
+#### 3.3. Aplicar Schema do Prisma
+
+```bash
+# Gerar Prisma Client
 npm run db:generate
-```
 
-#### 2.2 Criar Migração Inicial
+# Aplicar schema ao banco (cria tabelas)
+npm run db:push
 
-```bash
+# OU criar migração (recomendado para produção)
 npm run db:migrate
 ```
 
-Isso criará todas as tabelas no banco de dados.
+### 4. Configurar Redis
 
-#### 2.3 (Opcional) Abrir Prisma Studio
-
-```bash
-npm run db:studio
-```
-
-Isso abrirá uma interface visual para ver e editar dados.
-
----
-
-### **FASE 3: Autenticação**
-
-#### 3.1 Verificar Configuração do NextAuth
-
-O arquivo `lib/auth/config.ts` já está configurado. Certifique-se de:
-
-- Ter as variáveis de ambiente configuradas
-- Ter configurado pelo menos um provider (Email, Google ou GitHub)
-
-#### 3.2 Testar Autenticação
-
-1. Inicie o servidor: `npm run dev`
-2. Acesse: `http://localhost:3000/api/auth/signin`
-3. Teste o login
-
----
-
-### **FASE 4: Estrutura de Workspaces (Multi-tenant)**
-
-#### 4.1 Criar Workspace Inicial
-
-Após login, criar API route para criar workspace:
-
-```typescript
-// app/api/workspaces/route.ts
-// Implementar POST para criar workspace
-```
-
-#### 4.2 Middleware de Tenant
-
-Criar middleware para identificar tenant do usuário:
-
-```typescript
-// middleware.ts
-// Verificar tenant da sessão
-```
-
----
-
-### **FASE 5: CRUD de Agentes**
-
-#### 5.1 Criar API Routes
-
-- `app/api/agents/route.ts` - Listar e criar agentes
-- `app/api/agents/[id]/route.ts` - Editar, deletar, obter agente
-
-#### 5.2 Criar Interface de Dashboard
-
-- `app/dashboard/agents/page.tsx` - Lista de agentes
-- `app/dashboard/agents/[id]/page.tsx` - Editar agente
-- `app/dashboard/agents/new/page.tsx` - Criar agente
-
----
-
-### **FASE 6: Chat em Tempo Real**
-
-#### 6.1 Configurar Socket.IO
-
-1. Criar servidor Socket.IO
-2. Configurar rooms por workspace
-3. Integrar com LLM providers
-
-#### 6.2 Criar Interface de Chat
-
-- Componente de chat UI
-- Integração com WebSocket
-- Stream de respostas
-
----
-
-### **FASE 7: Sistema de Filas**
-
-#### 7.1 Configurar BullMQ Workers
-
-1. Criar workers para jobs assíncronos
-2. Configurar filas (postagens, crawling, ETL)
-3. Integrar com Redis
-
----
-
-### **FASE 8: LLM Providers**
-
-#### 8.1 Implementar Provider Base
-
-- Interface comum para todos os providers
-- Implementar OpenAI
-- Implementar Anthropic
-
-#### 8.2 Integrar com Agentes
-
-- Usar provider configurado no agente
-- Gerar respostas
-- Trackear uso (tokens)
-
----
-
-### **FASE 9: Armazenamento S3**
-
-#### 9.1 Configurar Cloudflare R2
-
-1. Criar bucket no R2
-2. Obter credenciais
-3. Configurar no `.env`
-
-#### 9.2 Implementar Upload
-
-- Service para upload de mídias
-- Integração com agentes
-- CDN para delivery
-
----
-
-### **FASE 10: Billing (Stripe)**
-
-#### 10.1 Configurar Stripe
-
-1. Criar conta Stripe
-2. Obter API keys
-3. Configurar webhooks
-
-#### 10.2 Implementar Planos
-
-- Criar produtos no Stripe
-- Configurar preços
-- Integrar com subscriptions
-
----
-
-## 📋 Checklist de Implementação
-
-- [ ] Fase 1: Configuração inicial
-- [ ] Fase 2: Banco de dados
-- [ ] Fase 3: Autenticação
-- [ ] Fase 4: Workspaces
-- [ ] Fase 5: CRUD de Agentes
-- [ ] Fase 6: Chat em tempo real
-- [ ] Fase 7: Sistema de filas
-- [ ] Fase 8: LLM Providers
-- [ ] Fase 9: Armazenamento S3
-- [ ] Fase 10: Billing
-
----
-
-## 🔧 Comandos Úteis
+#### 4.1. Iniciar Redis
 
 ```bash
-# Desenvolvimento
+# Se instalado localmente
+redis-server
+
+# Ou com Docker (já deve estar rodando se usou o comando acima)
+docker start redis-hiviex
+```
+
+#### 4.2. Testar Conexão
+
+```bash
+redis-cli ping
+# Deve retornar: PONG
+```
+
+### 5. Configurar APIs OAuth (Opcional para começar)
+
+#### YouTube
+
+1. Acesse: https://console.cloud.google.com/
+2. Crie um projeto
+3. Ative "YouTube Data API v3"
+4. Crie credenciais OAuth 2.0
+5. Adicione ao `.env`:
+```env
+YOUTUBE_CLIENT_ID="seu-client-id"
+YOUTUBE_CLIENT_SECRET="seu-client-secret"
+```
+
+#### Facebook/Instagram
+
+1. Acesse: https://developers.facebook.com/
+2. Crie um App
+3. Adicione produtos: "Facebook Login" e "Instagram Graph API"
+4. Configure OAuth Redirect URIs
+5. Adicione ao `.env`:
+```env
+FACEBOOK_APP_ID="seu-app-id"
+FACEBOOK_APP_SECRET="seu-app-secret"
+```
+
+### 6. Configurar S3 (Opcional para começar)
+
+#### AWS S3
+
+1. Crie um bucket no AWS S3
+2. Crie um usuário IAM com permissões S3
+3. Adicione ao `.env`:
+```env
+AWS_REGION="us-east-1"
+AWS_ACCESS_KEY_ID="sua-access-key"
+AWS_SECRET_ACCESS_KEY="sua-secret-key"
+S3_BUCKET="hiviex-media"
+```
+
+#### Cloudflare R2 (Alternativa)
+
+```env
+AWS_REGION="auto"
+AWS_ACCESS_KEY_ID="sua-r2-access-key"
+AWS_SECRET_ACCESS_KEY="sua-r2-secret-key"
+S3_BUCKET="hiviex-media"
+S3_ENDPOINT="https://[account-id].r2.cloudflarestorage.com"
+```
+
+### 7. Iniciar Aplicação
+
+#### Terminal 1: Next.js (Frontend + API)
+
+```bash
 npm run dev
-
-# Build
-npm run build
-
-# Produção
-npm start
-
-# Database
-npm run db:generate    # Gerar Prisma Client
-npm run db:push        # Push schema (desenvolvimento)
-npm run db:migrate     # Criar migração
-npm run db:studio      # Abrir Prisma Studio
-
-# Lint
-npm run lint
 ```
 
----
+Acesse: http://localhost:3000
 
-## 📝 Próximos Passos
+#### Terminal 2: Worker (Publicação em Background)
 
-1. **Comece pela Fase 1 e 2** (Setup e Database)
-2. **Teste a autenticação** (Fase 3)
-3. **Implemente workspaces** (Fase 4)
-4. **Crie agentes básicos** (Fase 5)
-5. **Adicione chat** (Fase 6)
-6. E assim por diante...
+```bash
+npx tsx scripts/start-worker.ts
+```
 
----
+### 8. Verificar se Está Funcionando
 
-## 🆘 Troubleshooting
+1. Acesse http://localhost:3000
+2. Faça login/cadastro
+3. Crie um workspace
+4. Tente criar um agente
+5. Verifique logs do worker
+
+## Troubleshooting
+
+### Erro: "Cannot connect to database"
+
+**Solução:**
+1. Verifique se PostgreSQL está rodando:
+```bash
+# Windows
+Get-Service postgresql*
+
+# Linux/macOS
+sudo systemctl status postgresql
+```
+
+2. Verifique DATABASE_URL no `.env`
+3. Teste conexão:
+```bash
+psql $DATABASE_URL -c "SELECT 1"
+```
+
+### Erro: "Cannot connect to Redis"
+
+**Solução:**
+1. Verifique se Redis está rodando:
+```bash
+redis-cli ping
+```
+
+2. Verifique REDIS_HOST e REDIS_PORT no `.env`
 
 ### Erro: "Prisma Client not generated"
+
+**Solução:**
 ```bash
 npm run db:generate
 ```
 
-### Erro: "Database connection failed"
-- Verifique `DATABASE_URL` no `.env`
-- Verifique se o PostgreSQL está rodando
-- Verifique firewall/network
+### Erro: "Migration failed"
 
-### Erro: "Redis connection failed"
-- Verifique `REDIS_URL` no `.env`
-- Verifique se o Redis está rodando
-
-### Erro: "pgvector extension not found"
-Execute no PostgreSQL:
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
+**Solução:**
+1. Verifique se o banco existe
+2. Verifique permissões do usuário
+3. Tente resetar (CUIDADO: apaga dados):
+```bash
+npx prisma migrate reset
 ```
 
----
+### Erro: "Module not found: reactflow"
 
-## 📚 Documentação Adicional
+**Solução:**
+```bash
+npm install
+```
 
-- [Plano de Implementação](./IMPLEMENTATION_PLAN.md)
-- [Arquitetura](./ARCHITECTURE.md)
-- [Prisma Docs](https://www.prisma.io/docs)
-- [NextAuth.js Docs](https://next-auth.js.org)
-- [BullMQ Docs](https://docs.bullmq.io)
+## Checklist de Configuração
 
+- [ ] Node.js 20.x instalado
+- [ ] PostgreSQL instalado e rodando
+- [ ] Redis instalado e rodando
+- [ ] Arquivo `.env` criado e configurado
+- [ ] `NEXTAUTH_SECRET` gerado
+- [ ] `ENCRYPTION_KEY` gerado
+- [ ] `DATABASE_URL` configurado
+- [ ] Prisma Client gerado (`npm run db:generate`)
+- [ ] Schema aplicado ao banco (`npm run db:push`)
+- [ ] Dependências instaladas (`npm install`)
+- [ ] Next.js rodando (`npm run dev`)
+- [ ] Worker rodando (`npx tsx scripts/start-worker.ts`)
+
+## Próximos Passos
+
+1. ✅ Configuração básica completa
+2. 🔄 Configurar APIs OAuth (quando precisar)
+3. 🔄 Configurar S3 (quando precisar)
+4. 🔄 Criar primeiro workspace
+5. 🔄 Conectar primeira conta social
+6. 🔄 Agendar primeiro post
+
+## Comandos Úteis
+
+```bash
+# Desenvolvimento
+npm run dev              # Inicia Next.js
+npm run build            # Build para produção
+npm run start            # Inicia produção
+
+# Banco de Dados
+npm run db:generate      # Gera Prisma Client
+npm run db:push          # Aplica schema (dev)
+npm run db:migrate       # Cria migração (prod)
+npm run db:studio        # Abre Prisma Studio
+
+# Qualidade
+npm run typecheck        # Verifica tipos TypeScript
+npm run lint             # Verifica código
+npm run ci            # Tudo (typecheck + lint + build)
+
+# Workers
+npx tsx scripts/start-worker.ts  # Inicia worker de publicação
+```
+
+## Suporte
+
+Se encontrar problemas:
+1. Verifique os logs do terminal
+2. Verifique logs do PostgreSQL: `tail -f /var/log/postgresql/postgresql.log`
+3. Verifique logs do Redis: `redis-cli monitor`
+4. Verifique arquivo `.env`
+5. Execute `npm run typecheck` para ver erros de tipo

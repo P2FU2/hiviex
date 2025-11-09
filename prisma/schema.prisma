@@ -35,6 +35,12 @@ model Tenant {
   subscriptions Subscription[]
   messages     Message[]
   analytics    Analytics[]
+  socialAccounts SocialAccount[]
+  scheduledPosts ScheduledPost[]
+  mediaAssets  MediaAsset[]
+  publishingJobs PublishingJob[]
+  socialMetrics SocialMetrics[]
+  webhookSubscriptions WebhookSubscription[]
 
   @@index([slug])
   @@map("tenants")
@@ -584,5 +590,292 @@ model Embedding {
   // Note: Vector index must be created manually via SQL:
   // CREATE INDEX IF NOT EXISTS embeddings_embedding_idx ON embeddings USING ivfflat (embedding vector_l2_ops);
   @@map("embeddings")
+}
+
+// ============================================
+// SOCIAL MEDIA INTEGRATIONS
+// ============================================
+
+enum SocialPlatform {
+  YOUTUBE
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  KWAII
+  GMAIL
+}
+
+enum SocialAccountStatus {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+  ERROR
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+// Contas de redes sociais conectadas (OAuth)
+model SocialAccount {
+  id            String              @id @default(cuid())
+  tenantId      String
+  platform      SocialPlatform
+  status        SocialAccountStatus @default(CONNECTED)
+  
+  // Identificadores da plataforma
+  platformUserId    String?  // ID do usuário na plataforma
+  platformUsername  String?  // Username/email na plataforma
+  platformPageId    String?  // Para Facebook Pages/Instagram Business
+  
+  // OAuth tokens (criptografados)
+  accessToken       String   @db.Text
+  refreshToken      String?  @db.Text
+  tokenExpiresAt    DateTime?
+  tokenScope        String?  // Escopos OAuth concedidos
+  
+  // Metadata
+  metadata          Json?    // Dados adicionais (nome da página, perfil, etc.)
+  lastSyncAt        DateTime?
+  lastError         String?  @db.Text
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scheduledPosts    ScheduledPost[]
+  metrics           SocialMetrics[]
+  webhookSubscriptions WebhookSubscription[]
+
+  @@unique([tenantId, platform, platformUserId])
+  @@index([tenantId])
+  @@index([platform])
+  @@index([status])
+  @@map("social_accounts")
+}
+
+// Posts agendados para publicação
+model ScheduledPost {
+  id              String     @id @default(cuid())
+  tenantId        String
+  socialAccountId String
+  
+  // Conteúdo
+  platform        SocialPlatform
+  contentType     String     // 'feed', 'reel', 'story', 'video', 'short', etc.
+  title           String?    @db.Text
+  caption         String?    @db.Text
+  hashtags        String[]   // Array de hashtags
+  mentions        String[]   // Array de mentions
+  
+  // Agendamento
+  scheduledAt     DateTime   // Quando deve ser publicado
+  publishedAt     DateTime?  // Quando foi realmente publicado
+  status          PostStatus @default(DRAFT)
+  
+  // Mídias associadas
+  mediaAssets     MediaAsset[]
+  
+  // Configurações específicas por plataforma
+  config          Json?      // Thumbnails, location, etc.
+  
+  // Resultado da publicação
+  platformPostId  String?    // ID do post na plataforma
+  platformPostUrl String?    // URL do post publicado
+  errorMessage    String?    @db.Text
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  publishingJobs  PublishingJob[]
+
+  @@index([tenantId])
+  @@index([socialAccountId])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt]) // Para queries de posts agendados
+  @@map("scheduled_posts")
+}
+
+// Assets de mídia (vídeos, imagens, etc.)
+model MediaAsset {
+  id              String     @id @default(cuid())
+  tenantId        String
+  
+  // Arquivo
+  fileName        String
+  fileSize        Int        // Tamanho em bytes
+  mimeType        String
+  mediaType       MediaType
+  
+  // Armazenamento
+  s3Key           String     // Chave no S3/R2
+  s3Bucket        String?
+  cdnUrl          String?    // URL do CDN
+  thumbnailUrl    String?    // URL da thumbnail
+  
+  // Metadados
+  width           Int?
+  height          Int?
+  duration        Int?       // Duração em segundos (para vídeo/áudio)
+  metadata        Json?      // Metadados EXIF, codec, etc.
+  
+  // Processamento
+  processed       Boolean    @default(false)
+  processingJobId String?   // ID do job de processamento
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scheduledPosts  ScheduledPost[]
+
+  @@index([tenantId])
+  @@index([s3Key])
+  @@index([mediaType])
+  @@map("media_assets")
+}
+
+// Jobs de publicação (BullMQ)
+model PublishingJob {
+  id              String     @id @default(cuid())
+  tenantId        String
+  scheduledPostId String
+  
+  // Job info
+  jobId           String     @unique // ID do job no BullMQ
+  status          JobStatus  @default(PENDING)
+  attempts        Int        @default(0)
+  maxAttempts     Int        @default(3)
+  
+  // Resultado
+  result          Json?      // Resultado da publicação
+  error           String?    @db.Text
+  errorStack      String?    @db.Text
+  
+  // Timing
+  scheduledFor    DateTime   // Quando deve executar
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scheduledPost   ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([scheduledPostId])
+  @@index([status])
+  @@index([scheduledFor]) // Para queries de jobs pendentes
+  @@index([jobId])
+  @@map("publishing_jobs")
+}
+
+// Métricas das plataformas sociais
+model SocialMetrics {
+  id              String     @id @default(cuid())
+  tenantId        String
+  socialAccountId String
+  
+  // Identificação do post
+  platformPostId  String?    // ID do post na plataforma
+  scheduledPostId String?   // ID do post agendado (se aplicável)
+  
+  // Métricas
+  date            DateTime   @default(now())
+  platform        SocialPlatform
+  
+  // Engajamento
+  views           Int        @default(0)
+  likes           Int        @default(0)
+  comments        Int        @default(0)
+  shares          Int        @default(0)
+  saves           Int        @default(0)
+  clicks          Int        @default(0)
+  
+  // Alcance
+  reach           Int        @default(0)
+  impressions     Int        @default(0)
+  
+  // Vídeo específico
+  watchTime       Int?       // Tempo total assistido (segundos)
+  averageViewDuration Int?   // Duração média de visualização (segundos)
+  
+  // Metadata
+  metadata        Json?      // Métricas adicionais específicas da plataforma
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([socialAccountId])
+  @@index([platformPostId])
+  @@index([date])
+  @@index([platform])
+  @@map("social_metrics")
+}
+
+// Webhooks configurados
+model WebhookSubscription {
+  id              String     @id @default(cuid())
+  tenantId        String
+  socialAccountId String
+  
+  platform        SocialPlatform
+  webhookId       String?    // ID do webhook na plataforma
+  webhookUrl      String     // URL do nosso endpoint
+  verifyToken     String?    // Token de verificação
+  
+  // Eventos inscritos
+  events          String[]   // ['comments', 'status', 'insights', etc.]
+  
+  // Status
+  active          Boolean    @default(true)
+  lastReceivedAt  DateTime?
+  lastError       String?    @db.Text
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([socialAccountId])
+  @@index([platform])
+  @@index([active])
+  @@map("webhook_subscriptions")
 }
 
