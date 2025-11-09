@@ -18,7 +18,6 @@ import ReactFlow, {
   useEdgesState,
   Panel,
   NodeMouseHandler,
-  useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { Bot, Settings, Play, Save, Plus, Trash2, X, GitBranch, History, Layout, Instagram, FileText, Eye, ChevronDown } from 'lucide-react'
@@ -49,7 +48,6 @@ interface FlowCanvasComponentProps {
 
 export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps) {
   const router = useRouter()
-  const reactFlowInstance = useReactFlow()
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -65,6 +63,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [isMenuCollapsed, setIsMenuCollapsed] = useState(false)
+  const reactFlowInstanceRef = useRef<any>(null)
 
   // Load flow data and agents
   useEffect(() => {
@@ -331,10 +330,10 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   }
 
   const handleAddNode = (type: string) => {
-    const position = reactFlowInstance.screenToFlowPosition({
+    const position = reactFlowInstanceRef.current?.screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
-    })
+    }) || { x: 400, y: 300 }
 
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
@@ -390,10 +389,10 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
   const handleDuplicateNode = () => {
     if (selectedNode) {
-      const position = reactFlowInstance.screenToFlowPosition({
+      const position = reactFlowInstanceRef.current?.screenToFlowPosition({
         x: selectedNode.position.x + 50,
         y: selectedNode.position.y + 50,
-      })
+      }) || { x: selectedNode.position.x + 50, y: selectedNode.position.y + 50 }
 
       const newNode: Node = {
         ...selectedNode,
@@ -407,10 +406,10 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
   const handlePasteNode = () => {
     if (copiedNode) {
-      const position = reactFlowInstance.screenToFlowPosition({
+      const position = reactFlowInstanceRef.current?.screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
-      })
+      }) || { x: 400, y: 300 }
 
       const newNode: Node = {
         ...copiedNode,
@@ -552,6 +551,9 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
           onConnect={onConnect}
           onNodeClick={handleNodeClick}
           onNodeContextMenu={handleNodeContextMenu}
+          onInit={(instance: any) => {
+            reactFlowInstanceRef.current = instance
+          }}
           nodeTypes={{
             ...nodeTypes,
             shape: (props: any) => (

@@ -63,7 +63,10 @@ export async function POST(
       const { LLMProvider } = await import('@/lib/llm/providers')
       
       // Get API key from agent metadata or environment
-      const apiKey = agent.metadata?.apiKey || undefined
+      const metadata = agent.metadata as any
+      const apiKey = (metadata && typeof metadata === 'object' && 'apiKey' in metadata) 
+        ? metadata.apiKey as string 
+        : undefined
       
       const systemPrompt = agent.personality || `Você é ${agent.name}. ${agent.description || ''}`
       
