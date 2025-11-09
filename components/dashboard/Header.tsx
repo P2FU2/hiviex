@@ -7,26 +7,57 @@
 'use client'
 
 import { signOut, useSession } from 'next-auth/react'
-import { User, LogOut, Settings } from 'lucide-react'
-import { useState } from 'react'
+import { User, LogOut, Settings, Sun, Moon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useThemeDetection } from '@/hooks/useThemeDetection'
 
 export default function DashboardHeader() {
   const { data: session } = useSession()
   const [showMenu, setShowMenu] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const theme = useThemeDetection()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(newTheme)
+    localStorage.setItem('theme', newTheme)
+  }
 
   return (
     <header className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10 px-8 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold text-black dark:text-white">
-            Dashboard
+          <h1 className="text-xl font-bold gradient-text">
+            HIVIEX
           </h1>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          >
+        <div className="flex items-center gap-3">
+          {/* Theme Toggle */}
+          {mounted && (
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5 text-black dark:text-white" />
+              ) : (
+                <Moon className="w-5 h-5 text-black dark:text-white" />
+              )}
+            </button>
+          )}
+
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            >
             <div className="w-8 h-8 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black text-sm font-medium">
               {session?.user?.name?.charAt(0).toUpperCase() ||
                 session?.user?.email?.charAt(0).toUpperCase() ||
@@ -60,6 +91,7 @@ export default function DashboardHeader() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
     </header>

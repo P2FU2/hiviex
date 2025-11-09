@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { hasTenantPermission } from '@/lib/utils/tenant'
+import { getAuthSession } from '@/lib/auth/session'
+import { hasTenantPermission, getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import { TenantRole } from '@prisma/client'
 import { z } from 'zod'
@@ -26,7 +26,7 @@ const createAgentSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
+    const session = await getAuthSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,26 +35,43 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const tenantId = searchParams.get('tenantId')
 
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'tenantId is required' },
-        { status: 400 }
+    // If tenantId provided, return agents for that tenant
+    if (tenantId) {
+      // Check permission
+      const hasPermission = await hasTenantPermission(
+        session.user.id,
+        tenantId,
+        TenantRole.MEMBER
       )
+
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+
+      const agents = await prisma.agent.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      return NextResponse.json({ agents })
     }
 
-    // Check permission
-    const hasPermission = await hasTenantPermission(
-      session.user.id,
-      tenantId,
-      TenantRole.MEMBER
-    )
-
-    if (!hasPermission) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    // If no tenantId, return all agents from user's workspaces
+    const tenantMemberships = await getUserTenants(session.user.id)
+    const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
     const agents = await prisma.agent.findMany({
-      where: { tenantId },
+      where: {
+        tenantId: { in: tenantIds },
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -70,7 +87,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
+    const session = await getAuthSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -31,8 +31,10 @@ model Tenant {
   users        TenantUser[]
   agents       Agent[]
   workflows    Workflow[]
+  flows        Flow[]
   subscriptions Subscription[]
   messages     Message[]
+  analytics    Analytics[]
 
   @@index([slug])
   @@map("tenants")
@@ -156,6 +158,9 @@ model Agent {
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   messages    Message[]
   workflows   WorkflowAgent[]
+  flowNodes   FlowNode[]
+  persona     AgentPersona?
+  avatar      AgentAvatar?
 
   @@index([tenantId])
   @@index([status])
@@ -191,7 +196,7 @@ model Message {
 }
 
 // ============================================
-// WORKFLOWS
+// WORKFLOWS (Legacy - mantido para compatibilidade)
 // ============================================
 
 enum WorkflowStatus {
@@ -235,6 +240,274 @@ model WorkflowAgent {
   @@index([workflowId])
   @@index([agentId])
   @@map("workflow_agents")
+}
+
+// ============================================
+// FLOW BUILDER (Canvas Visual de Fluxos)
+// ============================================
+
+enum FlowStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  DRAFT
+}
+
+enum FlowTriggerType {
+  MANUAL
+  SCHEDULED
+  WEBHOOK
+  EVENT
+}
+
+enum NodeType {
+  AGENT
+  PROCESS
+  TRIGGER
+  CONDITION
+  INTEGRATION
+}
+
+enum ProcessType {
+  TASK
+  RULE
+  AUTOMATION
+  TRIGGER
+  INTEGRATION
+}
+
+model Flow {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?        @db.Text
+  status      FlowStatus     @default(DRAFT)
+  triggerType FlowTriggerType @default(MANUAL)
+  triggerConfig Json?        // Configuração do trigger (cron, webhook, etc.)
+  
+  // Canvas position and zoom
+  viewport    Json?          // { x, y, zoom }
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  nodes       FlowNode[]
+  connections FlowConnection[]
+  executions  FlowExecution[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("flows")
+}
+
+model FlowNode {
+  id          String   @id @default(cuid())
+  flowId      String
+  type        NodeType
+  agentId     String?  // Se type = AGENT
+  processType ProcessType? // Se type = PROCESS
+  
+  // Position no canvas
+  positionX   Float
+  positionY   Float
+  
+  // Configuração do nó
+  label       String
+  config      Json?    // Configurações específicas do nó
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  flow        Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  agent       Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  // Conexões
+  sourceConnections FlowConnection[] @relation("SourceNode")
+  targetConnections FlowConnection[] @relation("TargetNode")
+
+  @@index([flowId])
+  @@index([agentId])
+  @@map("flow_nodes")
+}
+
+model FlowConnection {
+  id          String   @id @default(cuid())
+  flowId      String
+  sourceNodeId String
+  targetNodeId String
+  
+  // Configuração da conexão
+  condition   String?   @db.Text // Condição para executar (opcional)
+  config      Json?     // Configurações adicionais
+  
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  flow        Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  sourceNode  FlowNode  @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode  FlowNode  @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@index([flowId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@map("flow_connections")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model FlowExecution {
+  id          String          @id @default(cuid())
+  flowId      String
+  status      ExecutionStatus @default(PENDING)
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+  
+  // Dados de entrada e saída
+  input       Json?
+  output      Json?
+  logs        Json?           // Logs de execução
+  error       String?         @db.Text
+  
+  createdAt   DateTime        @default(now())
+
+  // Relations
+  flow        Flow            @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  nodeExecutions FlowNodeExecution[]
+
+  @@index([flowId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("flow_executions")
+}
+
+model FlowNodeExecution {
+  id              String          @id @default(cuid())
+  executionId     String
+  nodeId          String
+  status          ExecutionStatus @default(PENDING)
+  startedAt       DateTime        @default(now())
+  completedAt     DateTime?
+  
+  input           Json?
+  output          Json?
+  logs            Json?
+  error           String?         @db.Text
+
+  // Relations
+  execution       FlowExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([nodeId])
+  @@map("flow_node_executions")
+}
+
+// ============================================
+// AGENT PERSONALITY & AVATAR
+// ============================================
+
+model AgentPersona {
+  id          String   @id @default(cuid())
+  agentId     String   @unique
+  
+  // Personalidade (MENTE)
+  objective   String   @db.Text // Objetivo e propósito
+  motivation  String?  @db.Text
+  voiceTone   String?  // Tom de voz
+  style       String?  @db.Text // Estilo comunicativo
+  values      Json?    // Valores e princípios
+  archetype   String?  // Arquétipo (herói, mentor, etc.)
+  emotions    Json?    // Emoções predominantes
+  tags        String[] // Tags comportamentais
+  
+  // Parâmetros comportamentais
+  behaviorParams Json? // Parâmetros customizados
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_personas")
+}
+
+model AgentAvatar {
+  id          String   @id @default(cuid())
+  agentId     String   @unique
+  
+  // Estética Visual (CORPO)
+  faceConfig  Json?    // Configuração do rosto
+  hairConfig  Json?    // Configuração do cabelo
+  bodyConfig  Json?    // Configuração do corpo
+  style       String?  // Estilo geral
+  
+  // Visual
+  clothing    Json?    // Roupa e acessórios
+  environment Json?    // Ambientação
+  lighting    Json?    // Iluminação
+  
+  // Gravação
+  recordingStyle Json? // Estilo de gravação
+  
+  // Voz
+  voiceTimbre String?  // Timbre
+  voiceAccent String?  // Sotaque
+  voiceRhythm String?  // Ritmo
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_avatars")
+}
+
+// ============================================
+// ANALYTICS & REVENUE
+// ============================================
+
+model Analytics {
+  id          String   @id @default(cuid())
+  tenantId    String
+  flowId      String?
+  agentId     String?
+  
+  // Métricas
+  date        DateTime @default(now())
+  reach       Int?     // Alcance
+  impressions Int?     // Impressões
+  ctr         Float?   // Click-through rate
+  leads       Int?     // Leads capturados
+  revenue     Float?   // Receita
+  channel     String?  // Canal (Instagram, TikTok, etc.)
+  
+  // ROI
+  cost        Float?   // Custo
+  roi         Float?   // ROI calculado
+  
+  // Metadata
+  metadata    Json?    // Dados adicionais
+  
+  createdAt   DateTime @default(now())
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([flowId])
+  @@index([agentId])
+  @@index([date])
+  @@map("analytics")
 }
 
 // ============================================
