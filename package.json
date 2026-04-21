@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -40,6 +41,7 @@
     "next": "14.2.35",
     "next-auth": "^5.0.0-beta.15",
     "pgvector": "^0.1.8",
+    "prisma": "^5.7.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.2",
@@ -59,7 +61,6 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "14.2.35",
     "postcss": "^8.4.35",
-    "prisma": "^5.7.1",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
