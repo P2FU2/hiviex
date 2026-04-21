@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 
@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -64,7 +64,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -111,7 +111,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

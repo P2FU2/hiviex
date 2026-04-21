@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -61,12 +61,18 @@ export async function POST(
     let response: string
     try {
       const { LLMProvider } = await import('@/lib/llm/providers')
-      
-      // Get API key from agent metadata or environment
-      const metadata = agent.metadata as any
-      const apiKey = (metadata && typeof metadata === 'object' && 'apiKey' in metadata) 
-        ? metadata.apiKey as string 
-        : undefined
+      const { getDecryptedWorkspaceApiSecret } = await import(
+        '@/lib/services/workspace-api-secrets'
+      )
+
+      const metadata = agent.metadata as Record<string, unknown> | null
+      const metaKey =
+        metadata && typeof metadata.apiKey === 'string' ? metadata.apiKey : undefined
+      const workspaceKey = await getDecryptedWorkspaceApiSecret(
+        tenantId,
+        agent.provider || 'openai'
+      )
+      const apiKey = metaKey || workspaceKey || undefined
       
       const systemPrompt = agent.personality || `Você é ${agent.name}. ${agent.description || ''}`
       
@@ -81,8 +87,15 @@ export async function POST(
       response = llmResponse.content
     } catch (error) {
       console.error('LLM API error:', error)
-      // Fallback response
-      response = `Olá! Sou ${agent.name}. ${message.substring(0, 50)}...\n\n[Nota: Configure a API key nas configurações para usar o LLM real. Erro: ${error instanceof Error ? error.message : String(error)}]`
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          {
+            error: 'Falha ao gerar resposta. Verifique as chaves de API do provedor e tente novamente.',
+          },
+          { status: 502 }
+        )
+      }
+      response = `Olá! Sou ${agent.name}. (dev) Falha no LLM: ${error instanceof Error ? error.message : String(error)}`
     }
 
     // Save assistant message

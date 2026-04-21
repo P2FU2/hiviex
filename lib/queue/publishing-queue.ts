@@ -6,6 +6,7 @@
 
 import { Queue } from 'bullmq'
 import type { SocialPlatform } from '@/lib/types/domain'
+import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
 
 interface SchedulePostJob {
   scheduledPostId: string
@@ -16,7 +17,7 @@ interface SchedulePostJob {
 export class PublishingQueue {
   private queue: Queue<SchedulePostJob>
 
-  constructor(connection: { host: string; port: number; password?: string }) {
+  constructor(connection: BullMQConnection) {
     this.queue = new Queue<SchedulePostJob>('publishing', { connection })
   }
 
@@ -38,7 +39,7 @@ export class PublishingQueue {
       },
       {
         jobId: `post-${scheduledPostId}`, // ID único baseado no post
-        delay: scheduledAt.getTime() - Date.now(), // Delay até o horário agendado
+        delay: Math.max(0, scheduledAt.getTime() - Date.now()),
         attempts: 3, // Tenta 3 vezes em caso de falha
         backoff: {
           type: 'exponential',

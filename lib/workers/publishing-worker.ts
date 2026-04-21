@@ -8,6 +8,8 @@ import { Worker, Job } from 'bullmq'
 import { prisma } from '@/lib/db/prisma'
 import { createProvider } from '@/lib/integrations/providers'
 import type { SocialPlatform } from '@/lib/types/domain'
+import { decrypt, encrypt } from '@/lib/utils/encryption'
+import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
 
 interface PublishingJobData {
   scheduledPostId: string
@@ -18,7 +20,7 @@ interface PublishingJobData {
 export class PublishingWorker {
   private worker: Worker
 
-  constructor(connection: { host: string; port: number; password?: string }) {
+  constructor(connection: BullMQConnection) {
     this.worker = new Worker(
       'publishing',
       async (job: Job<PublishingJobData>) => {
@@ -87,28 +89,63 @@ export class PublishingWorker {
     })
 
     try {
-      // 4. Buscar tokens OAuth (descriptografar se necessário)
       const account = post.socialAccount
-      const tokens = {
-        accessToken: account.accessToken, // TODO: Descriptografar
-        refreshToken: account.refreshToken, // TODO: Descriptografar
-        expiresAt: account.tokenExpiresAt,
+      let accessTokenPlain = decrypt(account.accessToken)
+      let refreshTokenPlain = account.refreshToken
+        ? decrypt(account.refreshToken)
+        : undefined
+
+      const pageTokEnc =
+        platform === 'INSTAGRAM' && account.metadata && typeof account.metadata === 'object'
+          ? (account.metadata as Record<string, unknown>).pageAccessTokenEnc
+          : undefined
+      if (platform === 'INSTAGRAM' && typeof pageTokEnc === 'string' && pageTokEnc.length > 0) {
+        const pageTok = decrypt(pageTokEnc)
+        if (pageTok) {
+          accessTokenPlain = pageTok
+        }
       }
 
-      // 5. Verificar/renovar tokens se necessário
+      const tokens = {
+        accessToken: accessTokenPlain,
+        refreshToken: refreshTokenPlain,
+        expiresAt: account.tokenExpiresAt ?? undefined,
+      }
+
       const provider = createProvider(platform)
       const isValid = await provider.validateTokens(tokens)
 
-      if (!isValid && tokens.refreshToken) {
-        const newTokens = await provider.refreshTokens(tokens.refreshToken)
-        // TODO: Atualizar tokens no banco (criptografar)
+      if (!isValid && refreshTokenPlain) {
+        try {
+          const newTokens = await provider.refreshTokens(refreshTokenPlain)
+          accessTokenPlain = newTokens.accessToken
+          refreshTokenPlain = newTokens.refreshToken ?? refreshTokenPlain
+          await (prisma as any).socialAccount.update({
+            where: { id: account.id },
+            data: {
+              accessToken: encrypt(newTokens.accessToken),
+              refreshToken: newTokens.refreshToken
+                ? encrypt(newTokens.refreshToken)
+                : account.refreshToken,
+              tokenExpiresAt: newTokens.expiresAt ?? null,
+            },
+          })
+        } catch {
+          // Provider may not support refresh (e.g. Instagram long-lived); publish will fail clearly
+        }
+      }
+
+      const tokensForPublish = {
+        accessToken: accessTokenPlain,
+        refreshToken: refreshTokenPlain,
+        expiresAt: account.tokenExpiresAt ?? undefined,
       }
 
       // 6. Preparar URLs das mídias
       const mediaUrls = post.mediaAssets.map((asset: any) => asset.cdnUrl || asset.s3Key)
 
       // 7. Publicar
-      const result = await provider.publishPost(tokens, mediaUrls, {
+      const result = await provider.publishPost(tokensForPublish, mediaUrls, {
         title: post.title || undefined,
         caption: post.caption || undefined,
         hashtags: post.hashtags,

@@ -4,7 +4,7 @@
  * Marks onboarding as completed for the user
  */
 
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
 
@@ -12,8 +12,11 @@ export const dynamic = 'force-dynamic'
 
 export async function POST() {
   try {
-    const session = await getAuthSession()
-    
+    const session = await getApiSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     // Mark onboarding as completed
     // Use raw SQL to avoid TypeScript errors if Prisma Client not regenerated
     try {

@@ -7,14 +7,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Key, Plus, Trash2, Eye, EyeOff, Save, Loader2, X } from 'lucide-react'
+import { Key, Plus, Trash2, Loader2, X } from 'lucide-react'
 
 interface ApiKey {
   id: string
   name: string
   provider: string
-  key: string
-  isVisible: boolean
+  keyPrefix: string
+  createdAt?: string
+  lastUsedAt?: string | null
 }
 
 interface WorkspaceApiKeysSectionProps {
@@ -42,7 +43,7 @@ export default function WorkspaceApiKeysSection({
       const response = await fetch(`/api/workspaces/${workspaceId}/api-keys`)
       if (response.ok) {
         const data = await response.json()
-        setApiKeys(data.map((k: any) => ({ ...k, isVisible: false })))
+        setApiKeys(data.map((k: ApiKey) => ({ ...k })))
       }
     } catch (error) {
       console.error('Error loading API keys:', error)
@@ -66,7 +67,7 @@ export default function WorkspaceApiKeysSection({
       }
 
       const addedKey = await response.json()
-      setApiKeys([...apiKeys, { ...addedKey, isVisible: false }])
+      setApiKeys([...apiKeys, addedKey as ApiKey])
       setShowAddModal(false)
       setNewKey({ name: '', provider: 'openai', key: '' })
       showNotification('Chave API adicionada com sucesso!', 'success')
@@ -100,12 +101,6 @@ export default function WorkspaceApiKeysSection({
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const toggleVisibility = (keyId: string) => {
-    setApiKeys(apiKeys.map(k => 
-      k.id === keyId ? { ...k, isVisible: !k.isVisible } : k
-    ))
   }
 
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -145,16 +140,6 @@ export default function WorkspaceApiKeysSection({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => toggleVisibility(apiKey.id)}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg"
-                >
-                  {apiKey.isVisible ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-                <button
                   onClick={() => handleDeleteKey(apiKey.id)}
                   disabled={isLoading}
                   className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50"
@@ -165,7 +150,7 @@ export default function WorkspaceApiKeysSection({
             </div>
             <div className="mt-2">
               <code className="text-xs bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">
-                {apiKey.isVisible ? apiKey.key : '•'.repeat(20)}
+                {apiKey.keyPrefix} <span className="text-gray-500">(segredo não é exibido)</span>
               </code>
             </div>
           </div>

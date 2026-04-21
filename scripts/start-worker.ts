@@ -6,30 +6,25 @@
  */
 
 import { PublishingWorker } from '../lib/workers/publishing-worker'
+import { FlowExecutionWorker } from '../lib/workers/flow-execution-worker'
+import { getBullMQConnection } from '../lib/redis/bullmq-connection'
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
-}
+const connection = getBullMQConnection()
 
-console.log('🚀 Starting Publishing Worker...')
+console.log('🚀 Starting workers (publishing + flow-execution)...')
 console.log(`📡 Redis: ${connection.host}:${connection.port}`)
 
-const worker = new PublishingWorker(connection)
+const publishingWorker = new PublishingWorker(connection)
+const flowWorker = new FlowExecutionWorker(connection)
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM received, closing worker...')
-  await worker.close()
+async function shutdown(signal: string) {
+  console.log(`🛑 ${signal} received, closing workers...`)
+  await Promise.all([publishingWorker.close(), flowWorker.close()])
   process.exit(0)
-})
+}
 
-process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT received, closing worker...')
-  await worker.close()
-  process.exit(0)
-})
+process.on('SIGTERM', () => void shutdown('SIGTERM'))
+process.on('SIGINT', () => void shutdown('SIGINT'))
 
-console.log('✅ Worker started and listening for jobs')
+console.log('✅ Workers listening (queues: publishing, flow-execution)')
 

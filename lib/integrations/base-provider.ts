@@ -131,6 +131,8 @@ export abstract class BaseSocialProvider {
     username?: string
     name?: string
     avatar?: string
+    /** Token da Página Facebook (Instagram Graph); armazenar cifrado no callback, nunca em log. */
+    pageAccessToken?: string
     metadata?: Record<string, any>
   }>
 }

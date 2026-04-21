@@ -1,22 +1,30 @@
 /**
  * Workspace API Keys API Route
- * GET: Get workspace API keys
- * POST: Add new API key
+ * GET: lista chaves (sem segredo)
+ * POST: cria chave (segredo cifrado; nunca devolvido integralmente depois)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
+import { encrypt } from '@/lib/utils/encryption'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const createKeySchema = z.object({
+  name: z.string().min(1).max(120),
+  provider: z.string().min(1).max(64),
+  key: z.string().min(8).max(8192),
+})
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -34,15 +42,24 @@ export async function GET(
       )
     }
 
-    // Get API keys from workspace (stored in metadata or separate table)
-    // For now, return empty array - you may want to create a WorkspaceApiKey model
-    const apiKeys: any[] = []
+    const rows = await prisma.workspaceApiKey.findMany({
+      where: { tenantId: workspaceId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        provider: true,
+        keyPrefix: true,
+        createdAt: true,
+        lastUsedAt: true,
+      },
+    })
 
-    return NextResponse.json(apiKeys)
+    return NextResponse.json(rows)
   } catch (error: any) {
     console.error('Error fetching API keys:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         message: error.message || 'Unknown error',
       },
@@ -56,7 +73,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -75,29 +92,37 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { name, provider, key } = body
+    const parsed = createKeySchema.parse(body)
+    const provider = parsed.provider.toLowerCase().trim()
+    const trimmed = parsed.key.trim()
+    const keyPrefix =
+      trimmed.length <= 12 ? `${trimmed.slice(0, 4)}…` : `${trimmed.slice(0, 8)}…`
 
-    if (!name || !provider || !key) {
-      return NextResponse.json(
-        { error: 'Name, provider, and key are required' },
-        { status: 400 }
-      )
-    }
+    const row = await prisma.workspaceApiKey.create({
+      data: {
+        tenantId: workspaceId,
+        name: parsed.name.trim(),
+        provider,
+        keyPrefix,
+        encryptedSecret: encrypt(trimmed),
+      },
+      select: {
+        id: true,
+        name: true,
+        provider: true,
+        keyPrefix: true,
+        createdAt: true,
+      },
+    })
 
-    // Store API key (you may want to encrypt it)
-    // For now, return a mock response - you may want to create a WorkspaceApiKey model
-    const newKey = {
-      id: `key-${Date.now()}`,
-      name,
-      provider,
-      key, // In production, encrypt this
-    }
-
-    return NextResponse.json(newKey, { status: 201 })
+    return NextResponse.json(row, { status: 201 })
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.flatten() }, { status: 400 })
+    }
     console.error('Error adding API key:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         message: error.message || 'Unknown error',
       },
@@ -105,4 +130,3 @@ export async function POST(
     )
   }
 }
-

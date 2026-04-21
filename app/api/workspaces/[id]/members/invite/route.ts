@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import type { TenantRole } from '@/lib/types/domain'
@@ -16,7 +16,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

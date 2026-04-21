@@ -1,26 +1,45 @@
 /**
  * Server Session Helper
- * 
- * Helper function to get the current session in server components
- * Compatible with NextAuth v5 beta
+ *
+ * - getAuthSession: páginas Server Components (redirect HTML)
+ * - getApiSession: Route Handlers / API (401 JSON, sem redirect)
  */
 
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
+export type SessionUser = {
+  id: string
+  email?: string
+  name?: string | null
+  image?: string | null
+}
+
+export type AppSession = NonNullable<Awaited<ReturnType<typeof auth>>> & {
+  user: SessionUser
+}
+
 /**
- * Get the current authenticated session
- * Redirects to sign-in if not authenticated
- * Guarantees that session.user exists
+ * Páginas autenticadas: redireciona para /signin se não houver sessão.
  */
-export async function getAuthSession() {
+export async function getAuthSession(): Promise<AppSession> {
   const session = await auth()
-  
+
   if (!session?.user?.id) {
     redirect('/signin')
   }
-  
-  // Type assertion: we've verified user exists above
-  return session as typeof session & { user: { id: string; email?: string; name?: string | null; image?: string | null } }
+
+  return session as AppSession
+}
+
+/**
+ * API Routes: nunca chama redirect(); retorna null se anônimo.
+ */
+export async function getApiSession(): Promise<AppSession | null> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return null
+  }
+  return session as AppSession
 }
 

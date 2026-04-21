@@ -1,30 +1,24 @@
 /**
  * Schedule Post API
  * 
- * Agenda um post para publicação em múltiplas plataformas
+ * Agenda um post para publicaÃ§Ã£o em mÃºltiplas plataformas
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import { PublishingQueue } from '@/lib/queue/publishing-queue'
 import type { SocialPlatform } from '@/lib/types/domain'
+import { getBullMQConnection } from '@/lib/redis/bullmq-connection'
 
 export const dynamic = 'force-dynamic'
 
-// Inicializar queue (em produção, usar singleton)
-const getQueue = () => {
-  return new PublishingQueue({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-  })
-}
+const getQueue = () => new PublishingQueue(getBullMQConnection())
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -66,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Social account not found or disconnected' }, { status: 404 })
     }
 
-    // Validar mídias
+    // Validar mÃ­dias
     if (mediaAssetIds.length > 0) {
       const mediaAssets = await (prisma as any).mediaAsset.findMany({
         where: {

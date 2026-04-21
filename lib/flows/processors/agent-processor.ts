@@ -201,9 +201,21 @@ export class AgentProcessor {
   ): Promise<any> {
     try {
       const { LLMProvider } = await import('@/lib/llm/providers')
-      
-      // Get API key from agent metadata or environment
-      const apiKey = agent.metadata?.apiKey || undefined
+      const { getDecryptedWorkspaceApiSecret } = await import(
+        '@/lib/services/workspace-api-secrets'
+      )
+
+      const workspaceKey = await getDecryptedWorkspaceApiSecret(
+        agent.tenantId,
+        agent.provider || 'openai'
+      )
+      const meta = agent.metadata as Record<string, unknown> | null
+      const metaKey =
+        meta && typeof meta === 'object' && typeof meta.apiKey === 'string'
+          ? meta.apiKey
+          : undefined
+
+      const apiKey = metaKey || workspaceKey || undefined
 
       const response = await LLMProvider.call(systemPrompt, userMessage, {
         provider: agent.provider || 'openai',
@@ -224,17 +236,23 @@ export class AgentProcessor {
         },
       }
     } catch (error) {
-      // Fallback to mock if API key not configured
-      console.warn('LLM API call failed, using mock response:', error)
-      
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn('LLM API call failed:', message)
+
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          `LLM request failed: ${message}. Configure OPENAI_API_KEY (or provider keys) and agent access.`
+        )
+      }
+
       return {
-        content: `[MOCK] Agent ${agent.name} processed: ${userMessage.substring(0, 100)}...\n\nNote: Configure API key in settings to use real LLM.`,
+        content: `[DEV MOCK] Agent ${agent.name}: ${userMessage.substring(0, 100)}… — configure API keys for real output.`,
         metadata: {
           agentId: agent.id,
           agentName: agent.name,
           model: agent.model,
           provider: agent.provider,
-          error: error instanceof Error ? error.message : String(error),
+          error: message,
         },
       }
     }

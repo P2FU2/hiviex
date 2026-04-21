@@ -41,9 +41,29 @@ model Tenant {
   publishingJobs PublishingJob[]
   socialMetrics SocialMetrics[]
   webhookSubscriptions WebhookSubscription[]
+  workspaceApiKeys WorkspaceApiKey[]
 
   @@index([slug])
   @@map("tenants")
+}
+
+// Chaves de API de terceiros por workspace (segredo cifrado em repouso)
+model WorkspaceApiKey {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  provider        String
+  keyPrefix       String
+  encryptedSecret String   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastUsedAt      DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, provider])
+  @@map("workspace_api_keys")
 }
 
 model TenantUser {

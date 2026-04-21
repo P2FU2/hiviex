@@ -4,7 +4,7 @@
  * Returns whether the user has completed onboarding
  */
 
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
 
@@ -12,8 +12,11 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const session = await getAuthSession()
-    
+    const session = await getApiSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     // Check if user has completed onboarding
     // Handle case where field might not exist yet
     try {

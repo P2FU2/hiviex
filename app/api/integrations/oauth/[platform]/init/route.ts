@@ -5,10 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { createProvider } from '@/lib/integrations/providers'
 import type { SocialPlatform } from '@/lib/types/domain'
+import { signOAuthState } from '@/lib/auth/oauth-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ platform: string }> | { platform: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -41,7 +42,7 @@ export async function GET(
     // Criar provider e obter URL de autorização
     const provider = createProvider(platform)
     const redirectUri = `${request.nextUrl.origin}/api/integrations/oauth/${platform}`
-    const state = `${tenantId}:${session.user.id}` // Para validar no callback
+    const state = signOAuthState(tenantId, session.user.id)
 
     const authUrl = provider.getAuthUrl(state, redirectUri)
 

@@ -1,11 +1,11 @@
 /**
- * Workspace API Key Management API Route
- * DELETE: Delete API key
+ * Workspace API Key — DELETE
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
+import { prisma } from '@/lib/db/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +14,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; keyId: string }> | { id: string; keyId: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -32,14 +32,19 @@ export async function DELETE(
       )
     }
 
-    // Delete API key (you may want to create a WorkspaceApiKey model)
-    // For now, just return success
-    
+    const deleted = await prisma.workspaceApiKey.deleteMany({
+      where: { id: keyId, tenantId: workspaceId },
+    })
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: 'API key not found' }, { status: 404 })
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting API key:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         message: error.message || 'Unknown error',
       },
@@ -47,4 +52,3 @@ export async function DELETE(
     )
   }
 }
-

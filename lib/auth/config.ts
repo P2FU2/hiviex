@@ -11,6 +11,7 @@ import GitHubProvider from 'next-auth/providers/github'
 import CredentialsProvider from 'next-auth/providers/credentials'
 // @ts-ignore - bcryptjs types are included in the package
 import bcrypt from 'bcryptjs'
+import { getNextAuthSecret } from '@/lib/auth/secrets'
 
 // Filter providers based on environment variables
 const providers: any[] = []
@@ -114,14 +115,11 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   )
 }
 
-// Validate required environment variables
-if (!process.env.NEXTAUTH_SECRET) {
-  console.warn('⚠️  NEXTAUTH_SECRET is not set. Authentication may not work correctly.')
-}
-
 if (!process.env.NEXTAUTH_URL) {
   console.warn('⚠️  NEXTAUTH_URL is not set. Using default: http://localhost:3000')
 }
+
+const nextAuthSecret = getNextAuthSecret()
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -170,7 +168,7 @@ export const authOptions = {
       return `${baseUrl}/dashboard`
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only',
+  secret: nextAuthSecret,
   trustHost: true, // Required for Render and other hosting platforms
 }
 

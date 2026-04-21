@@ -5,11 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import { createProvider } from '@/lib/integrations/providers'
 import type { SocialPlatform } from '@/lib/types/domain'
+import { encrypt } from '@/lib/utils/encryption'
+import { verifyOAuthState } from '@/lib/auth/oauth-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +20,9 @@ export async function GET(
   { params }: { params: Promise<{ platform: string }> | { platform: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      return NextResponse.redirect(new URL('/signin', request.url))
     }
 
     const resolvedParams = await Promise.resolve(params)
@@ -41,11 +43,11 @@ export async function GET(
       return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
     }
 
-    // Validar state (deve conter tenantId)
-    const [tenantId, userId] = state.split(':')
-    if (userId !== session.user.id) {
-      return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
+    const parsed = verifyOAuthState(state)
+    if (!parsed || parsed.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Invalid or expired OAuth state' }, { status: 400 })
     }
+    const { tenantId } = parsed
 
     // Verificar acesso ao tenant
     const tenantMemberships = await getUserTenants(session.user.id)
@@ -63,8 +65,19 @@ export async function GET(
     // Obter informações da conta
     const accountInfo = await provider.getAccountInfo(tokens)
 
-    // Salvar/atualizar conta social
-    // TODO: Criptografar tokens antes de salvar
+    const accessTokenEnc = encrypt(tokens.accessToken)
+    const refreshTokenEnc = tokens.refreshToken ? encrypt(tokens.refreshToken) : null
+
+    const pageId = accountInfo.metadata?.pageId as string | undefined
+    const meta: Record<string, unknown> = {
+      name: accountInfo.name,
+      avatar: accountInfo.avatar,
+      ...accountInfo.metadata,
+    }
+    if (accountInfo.pageAccessToken) {
+      meta.pageAccessTokenEnc = encrypt(accountInfo.pageAccessToken)
+    }
+
     await (prisma as any).socialAccount.upsert({
       where: {
         tenantId_platform_platformUserId: {
@@ -79,24 +92,23 @@ export async function GET(
         status: 'CONNECTED',
         platformUserId: accountInfo.userId,
         platformUsername: accountInfo.username,
-        accessToken: tokens.accessToken, // TODO: Criptografar
-        refreshToken: tokens.refreshToken, // TODO: Criptografar
+        platformPageId: pageId ?? null,
+        accessToken: accessTokenEnc,
+        refreshToken: refreshTokenEnc,
         tokenExpiresAt: tokens.expiresAt,
         tokenScope: tokens.scope,
-        metadata: {
-          name: accountInfo.name,
-          avatar: accountInfo.avatar,
-          ...accountInfo.metadata,
-        },
+        metadata: meta,
       },
       update: {
         status: 'CONNECTED',
-        accessToken: tokens.accessToken, // TODO: Criptografar
-        refreshToken: tokens.refreshToken, // TODO: Criptografar
+        platformPageId: pageId ?? null,
+        accessToken: accessTokenEnc,
+        refreshToken: refreshTokenEnc,
         tokenExpiresAt: tokens.expiresAt,
         tokenScope: tokens.scope,
         lastSyncAt: new Date(),
         lastError: null,
+        metadata: meta,
       },
     })
 

@@ -4,11 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthSession } from '@/lib/auth/session'
+import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
-import { FlowExecutionEngine } from '@/lib/flows/execution-engine'
 import { validateFlow } from '@/lib/flows/validators'
+import { FlowExecutionQueue } from '@/lib/queue/flow-execution-queue'
+import { getBullMQConnection } from '@/lib/redis/bullmq-connection'
+import { runFlowExecutionJob } from '@/lib/flows/run-flow-execution'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +19,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const session = await getAuthSession()
+    const session = await getApiSession()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -32,7 +34,7 @@ export async function POST(
     const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
     // Get flow with nodes and connections
-    const flow = await (prisma as any).flow.findFirst({
+    const flow = await prisma.flow.findFirst({
       where: {
         id: flowId,
         tenantId: { in: tenantIds },
@@ -75,7 +77,7 @@ export async function POST(
     }
 
     // Create execution record
-    const execution = await (prisma as any).flowExecution.create({
+    const execution = await prisma.flowExecution.create({
       data: {
         flowId,
         status: 'PENDING',
@@ -101,8 +103,54 @@ export async function POST(
       },
     })
 
-    // Execute flow asynchronously
-    executeFlowAsync(execution.id, flow, input)
+    const redisConfigured = !!(
+      process.env.REDIS_URL?.trim() || process.env.REDIS_HOST?.trim()
+    )
+
+    if (!redisConfigured) {
+      if (process.env.NODE_ENV === 'production') {
+        await prisma.flowExecution.update({
+          where: { id: execution.id },
+          data: {
+            status: 'FAILED',
+            error: 'Redis não configurado — defina REDIS_URL ou REDIS_HOST para executar fluxos.',
+          },
+        })
+        return NextResponse.json(
+          {
+            error:
+              'Execução de fluxos em produção exige Redis (REDIS_URL). Configure o worker e tente novamente.',
+          },
+          { status: 503 }
+        )
+      }
+      void runFlowExecutionJob(execution.id).catch((err) =>
+        console.error('[flow execute] inline dev run failed', err)
+      )
+      return NextResponse.json(execution)
+    }
+
+    try {
+      const queue = new FlowExecutionQueue(getBullMQConnection())
+      await queue.enqueue({
+        executionId: execution.id,
+        tenantId: flow.tenantId,
+      })
+      await queue.close()
+    } catch (queueErr) {
+      console.error('Flow execution enqueue failed:', queueErr)
+      await prisma.flowExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: 'FAILED',
+          error: 'Fila de execução indisponível. Verifique Redis e o worker.',
+        },
+      })
+      return NextResponse.json(
+        { error: 'Fila de jobs indisponível. Tente novamente em instantes.' },
+        { status: 503 }
+      )
+    }
 
     return NextResponse.json(execution)
   } catch (error) {
@@ -111,78 +159,6 @@ export async function POST(
       { error: 'Internal server error' },
       { status: 500 }
     )
-  }
-}
-
-/**
- * Execute flow asynchronously
- */
-async function executeFlowAsync(
-  executionId: string,
-  flow: any,
-  input: Record<string, any>
-) {
-  try {
-    // Update status to RUNNING
-    await (prisma as any).flowExecution.update({
-      where: { id: executionId },
-      data: {
-        status: 'RUNNING',
-      },
-    })
-
-    // Create execution engine
-    const engine = new FlowExecutionEngine(
-      executionId,
-      flow.id,
-      flow.nodes,
-      flow.connections
-    )
-
-    // Execute flow
-    const result = await engine.execute(input)
-
-    // Update execution with results
-    await (prisma as any).flowExecution.update({
-      where: { id: executionId },
-      data: {
-        status: result.success ? 'COMPLETED' : 'FAILED',
-        completedAt: new Date(),
-        output: result.output,
-        logs: result.logs,
-        error: result.success ? null : 'Flow execution failed',
-      },
-    })
-
-    // Save individual node executions
-    for (const [nodeId, nodeResult] of Array.from(result.nodeResults.entries())) {
-      await (prisma as any).flowNodeExecution.create({
-        data: {
-          executionId,
-          nodeId,
-          status: nodeResult.success ? 'COMPLETED' : 'FAILED',
-          startedAt: new Date(Date.now() - nodeResult.duration),
-          completedAt: new Date(),
-          input: input,
-          output: nodeResult.output,
-          logs: nodeResult.logs,
-          error: nodeResult.error,
-        },
-      })
-    }
-  } catch (error) {
-    console.error('Error in flow execution:', error)
-    const errorMessage =
-      error instanceof Error ? error.message : String(error)
-
-    await (prisma as any).flowExecution.update({
-      where: { id: executionId },
-      data: {
-        status: 'FAILED',
-        completedAt: new Date(),
-        error: errorMessage,
-      },
-    })
   }
 }
 

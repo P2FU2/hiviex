@@ -295,14 +295,43 @@ export class InstagramProvider extends BaseSocialProvider {
     username?: string
     name?: string
     avatar?: string
+    pageAccessToken?: string
     metadata?: Record<string, any>
   }> {
-    // Requer page access token e Instagram Business Account
-    // Implementação simplificada
-    return {
-      userId: 'ig_user_id',
-      username: 'instagram_user',
+    const fields =
+      'id,name,access_token,instagram_business_account{id,username,profile_picture_url}'
+    const url =
+      `${this.apiBaseUrl}/me/accounts?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(tokens.accessToken)}`
+
+    const response = await fetch(url)
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`Failed to list Facebook Pages: ${text}`)
     }
+
+    const data = await response.json()
+    const pages = data.data || []
+
+    for (const page of pages) {
+      const ig = page.instagram_business_account
+      if (ig?.id) {
+        return {
+          userId: String(ig.id),
+          username: ig.username,
+          name: page.name,
+          avatar: ig.profile_picture_url,
+          pageAccessToken: page.access_token,
+          metadata: {
+            pageId: page.id,
+            igUserId: String(ig.id),
+          },
+        }
+      }
+    }
+
+    throw new Error(
+      'No Instagram Business account linked to a Facebook Page for this user. Connect a Page with Instagram in Meta Business Suite.'
+    )
   }
 
   private formatCaption(caption?: string, hashtags?: string[], mentions?: string[]): string {
