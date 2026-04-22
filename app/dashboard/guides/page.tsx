@@ -6,7 +6,7 @@
 
 'use client'
 
-import { Book, Bot, GitBranch, BarChart3, Settings, Key, Play, Save } from 'lucide-react'
+import { Book, Bot, GitBranch, BarChart3, Settings, Key, Play, Save, Activity } from 'lucide-react'
 import Link from 'next/link'
 
 const guides = [
@@ -157,6 +157,33 @@ const guides = [
       },
     ],
   },
+  {
+    id: 'environment',
+    title: 'Ambiente e capacidades máximas',
+    icon: Activity,
+    color: 'slate',
+    sections: [
+      {
+        title: 'O que verificar',
+        steps: [
+          'Abra Sistema → Estado do sistema (ou o cartão “Prontidão” no dashboard)',
+          'PostgreSQL: necessário para toda a app',
+          'Redis: filas BullMQ — publicação agendada, workers de flow, vídeo e influencer',
+          'TOKEN_ENCRYPTION_KEY ou ENCRYPTION_KEY: OAuth e chaves API do workspace',
+          'Armazenamento S3/R2: uploads em Mídia e artefactos de vídeo',
+          'Stripe: apenas para cobrança; sem chave, planos mostram aviso',
+        ],
+      },
+      {
+        title: 'Worker em produção',
+        steps: [
+          'Execute o processo worker (ex.: npm run worker) no mesmo ambiente com Redis',
+          'Sem worker, tarefas em fila (posts agendados, vídeo, flows) não avançam',
+          'GET /api/health mostra heartbeat em hiviex:health:worker quando o worker corre',
+        ],
+      },
+    ],
+  },
 ]
 
 export default function GuidesPage() {
@@ -228,6 +255,8 @@ export default function GuidesPage() {
             purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
             green: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
             orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
+            slate:
+              'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/40',
           }
 
           return (

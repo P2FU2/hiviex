@@ -147,8 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem('user')
-    // TODO: Clear auth token when DB is integrated
-    // localStorage.removeItem('authToken')
+    void import('next-auth/react').then(({ signOut }) =>
+      signOut({ callbackUrl: '/' })
+    )
   }
 
   /**

@@ -253,6 +253,25 @@ function IntegrationsInner() {
           </div>
         ))}
       </div>
+
+      <p className="mt-10 max-w-2xl text-sm leading-relaxed text-[var(--text-secondary)]">
+        Para publicação agendada e processamento em fila funcionarem em produção, o
+        operador deve configurar{' '}
+        <Link
+          href="/dashboard/status"
+          className="font-medium text-[var(--accent)] hover:underline"
+        >
+          Redis e o worker
+        </Link>
+        . Modelos de IA usados pelos agentes configuram-se em{' '}
+        <Link
+          href="/dashboard/apis"
+          className="font-medium text-[var(--accent)] hover:underline"
+        >
+          APIs e IA
+        </Link>
+        .
+      </p>
     </div>
   )
 }

@@ -9,10 +9,25 @@ import { prisma } from '@/lib/db/prisma'
 import { getUserTenants } from '@/lib/utils/tenant'
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
-import { Plus, Users, Bot, Workflow, TrendingUp } from 'lucide-react'
+import {
+  Plus,
+  Users,
+  Bot,
+  Workflow,
+  TrendingUp,
+  Plug,
+  CalendarDays,
+  Images,
+  Clapperboard,
+  Sparkles,
+  GitBranch,
+  Code2,
+  BookOpen,
+} from 'lucide-react'
 import { PageHeader } from '@/components/dashboard/PageHeader'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { Card } from '@/components/ui/Card'
+import FeatureReadinessCard from '@/components/dashboard/FeatureReadinessCard'
 import { dashBtnPrimary, dashInteractiveCard, dashLink } from '@/lib/dashboard-ui'
 
 export const dynamic = 'force-dynamic'
@@ -54,6 +69,64 @@ export default async function DashboardPage() {
           Novo workspace
         </Link>
       </PageHeader>
+
+      <FeatureReadinessCard />
+
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+          Atalhos do produto
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <QuickLink
+            href="/dashboard/integrations"
+            icon={Plug}
+            label="Integrações"
+            sub="OAuth redes"
+          />
+          <QuickLink
+            href="/dashboard/calendar"
+            icon={CalendarDays}
+            label="Calendário"
+            sub="Agendar posts"
+          />
+          <QuickLink
+            href="/dashboard/media"
+            icon={Images}
+            label="Mídia"
+            sub="Uploads"
+          />
+          <QuickLink
+            href="/dashboard/video"
+            icon={Clapperboard}
+            label="Vídeo"
+            sub="Projetos & cortes"
+          />
+          <QuickLink
+            href="/dashboard/influencers"
+            icon={Sparkles}
+            label="Influenciadores"
+            sub="Versões & aprovação"
+          />
+          <QuickLink
+            href="/dashboard/flows"
+            icon={GitBranch}
+            label="Flow Builder"
+            sub="Automação visual"
+          />
+          <QuickLink
+            href="/dashboard/apis"
+            icon={Code2}
+            label="APIs e IA"
+            sub="Chaves LLM"
+          />
+          <QuickLink
+            href="/dashboard/guides"
+            icon={BookOpen}
+            label="Guias"
+            sub="Como usar"
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
         <StatCard
@@ -117,6 +190,35 @@ export default async function DashboardPage() {
         )}
       </Card>
     </div>
+  )
+}
+
+function QuickLink({
+  href,
+  icon: Icon,
+  label,
+  sub,
+}: {
+  href: string
+  icon: LucideIcon
+  label: string
+  sub: string
+}) {
+  return (
+    <Link
+      href={href}
+      className={`${dashInteractiveCard} flex flex-col gap-1 p-4 text-left`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        <span className="text-sm font-medium text-[var(--text-primary)]">
+          {label}
+        </span>
+      </div>
+      <span className="pl-11 text-xs text-[var(--text-tertiary)]">{sub}</span>
+    </Link>
   )
 }
 
