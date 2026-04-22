@@ -7,12 +7,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
+import {
+  isWithinUsageLimit,
+  recordTenantUsage,
+} from '@/lib/billing/usage'
+import { createLogger } from '@/lib/observability/logger'
 
 export const dynamic = 'force-dynamic'
 
+const log = createLogger('agent-chat')
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const session = await getApiSession()
@@ -20,7 +27,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const agentId = params.id
+    const { id: agentId } = await Promise.resolve(params)
     const body = await request.json()
     const { message } = body
 
@@ -46,6 +53,17 @@ export async function POST(
 
     // Get tenant for message
     const tenantId = agent.tenantId
+
+    const within = await isWithinUsageLimit(tenantId, 'llm_chat')
+    if (!within) {
+      return NextResponse.json(
+        {
+          error: 'Limite mensal de utilização atingido para este workspace.',
+          code: 'USAGE_LIMIT_EXCEEDED',
+        },
+        { status: 429 }
+      )
+    }
 
     // Save user message
     await prisma.message.create({
@@ -74,8 +92,26 @@ export async function POST(
       )
       const apiKey = metaKey || workspaceKey || undefined
       
-      const systemPrompt = agent.personality || `Você é ${agent.name}. ${agent.description || ''}`
-      
+      let systemPrompt =
+        agent.personality || `Você é ${agent.name}. ${agent.description || ''}`
+
+      if (process.env.RAG_ENABLED === 'true') {
+        try {
+          const { searchRelevantContext } = await import('@/lib/embeddings/search')
+          const rag = await searchRelevantContext({
+            tenantId,
+            agentId,
+            query: String(message).slice(0, 4000),
+            limit: 4,
+          })
+          if (rag) {
+            systemPrompt += `\n\nContexto relevante (base de conhecimento):\n${rag}`
+          }
+        } catch {
+          /* RAG opcional */
+        }
+      }
+
       const llmResponse = await LLMProvider.call(systemPrompt, message, {
         provider: agent.provider || 'openai',
         apiKey,
@@ -85,8 +121,20 @@ export async function POST(
       })
       
       response = llmResponse.content
+
+      try {
+        await recordTenantUsage(tenantId, {
+          feature: 'llm_chat',
+          tokens: llmResponse.metadata.tokensUsed,
+        })
+      } catch (usageErr) {
+        log.error('recordTenantUsage falhou após chat', usageErr, {
+          tenantId,
+          agentId,
+        })
+      }
     } catch (error) {
-      console.error('LLM API error:', error)
+      log.error('LLM API error', error, { tenantId, agentId })
       if (process.env.NODE_ENV === 'production') {
         return NextResponse.json(
           {
@@ -96,6 +144,7 @@ export async function POST(
         )
       }
       response = `Olá! Sou ${agent.name}. (dev) Falha no LLM: ${error instanceof Error ? error.message : String(error)}`
+      void recordTenantUsage(tenantId, { feature: 'llm_chat' }).catch(() => {})
     }
 
     // Save assistant message
@@ -108,9 +157,32 @@ export async function POST(
       },
     })
 
+    if (process.env.RAG_ENABLED === 'true' && process.env.OPENAI_API_KEY) {
+      void import('@/lib/embeddings/search')
+        .then(({ ingestEmbeddingDocument }) =>
+          ingestEmbeddingDocument({
+            content: `Q: ${String(message).slice(0, 6000)}\nA: ${response.slice(0, 6000)}`,
+            metadata: {
+              tenantId,
+              agentId,
+              source: 'chat_turn',
+            },
+          })
+        )
+        .catch(() => {
+          /* ingest best-effort */
+        })
+    }
+
     return NextResponse.json({ response })
   } catch (error) {
-    console.error('Error in chat:', error)
+    log.error('Error in chat', error, {})
+    try {
+      const Sentry = await import('@sentry/nextjs')
+      Sentry.captureException(error, { tags: { route: 'agent-chat' } })
+    } catch {
+      /* opcional */
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

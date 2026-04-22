@@ -11,6 +11,9 @@ import type { SocialPlatform } from '@/lib/types/domain'
 import { decrypt, encrypt } from '@/lib/utils/encryption'
 import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
 import { resolveAssetPublicUrl } from '@/lib/storage/object-storage'
+import { createLogger } from '@/lib/observability/logger'
+
+const log = createLogger('publishing-worker')
 
 interface PublishingJobData {
   scheduledPostId: string
@@ -45,20 +48,21 @@ export class PublishingWorker {
 
   private setupEventHandlers() {
     this.worker.on('completed', (job) => {
-      console.log(`[PublishingWorker] Job ${job.id} completed`)
+      log.debug('job completed', { jobId: job.id })
     })
 
     this.worker.on('failed', (job, err) => {
-      console.error(`[PublishingWorker] Job ${job?.id} failed:`, err)
+      log.error('job failed', err, { jobId: job?.id })
     })
 
     this.worker.on('error', (err) => {
-      console.error('[PublishingWorker] Error:', err)
+      log.error('worker error', err)
     })
   }
 
   private async processPublishingJob(job: Job<PublishingJobData>) {
     const { scheduledPostId, tenantId, platform } = job.data
+    const t0 = Date.now()
 
     // 1. Buscar post agendado
     const post = await (prisma as any).scheduledPost.findUnique({
@@ -198,8 +202,29 @@ export class PublishingWorker {
         },
       })
 
+      log.info('publish success', {
+        scheduledPostId,
+        tenantId,
+        platform,
+        durationMs: Date.now() - t0,
+      })
       return result
     } catch (error: any) {
+      log.error('publish failed', error, {
+        scheduledPostId,
+        tenantId,
+        platform,
+        durationMs: Date.now() - t0,
+      })
+      try {
+        const Sentry = await import('@sentry/nextjs')
+        Sentry.captureException(error, {
+          tags: { worker: 'publishing' },
+          extra: { scheduledPostId, tenantId, platform },
+        })
+      } catch {
+        /* opcional */
+      }
       // Atualizar post com erro
       await (prisma as any).scheduledPost.update({
         where: { id: scheduledPostId },

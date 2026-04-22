@@ -32,6 +32,7 @@ import {
   Plug,
   CalendarDays,
   Images,
+  Activity,
 } from 'lucide-react'
 
 interface NavItem {
@@ -94,6 +95,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
+  { name: 'Sistema', href: '/dashboard/status', icon: Activity },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   { name: 'Guias', href: '/dashboard/guides', icon: Book },
 ]

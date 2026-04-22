@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
+import { generateWebhookSecret } from '@/lib/flows/webhook-secret'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,8 +102,58 @@ export async function PUT(
     if (name !== undefined) updateData.name = name
     if (description !== undefined) updateData.description = description
     if (status !== undefined) updateData.status = status
-    if (triggerType !== undefined) updateData.triggerType = triggerType
-    if (triggerConfig !== undefined) updateData.triggerConfig = triggerConfig
+
+    if (triggerType === 'MANUAL') {
+      updateData.triggerType = 'MANUAL'
+      updateData.triggerConfig = {}
+    } else if (triggerType === 'WEBHOOK') {
+      updateData.triggerType = 'WEBHOOK'
+      const prev =
+        existingFlow.triggerConfig &&
+        typeof existingFlow.triggerConfig === 'object' &&
+        !Array.isArray(existingFlow.triggerConfig)
+          ? (existingFlow.triggerConfig as Record<string, unknown>)
+          : {}
+      const inc =
+        triggerConfig &&
+        typeof triggerConfig === 'object' &&
+        !Array.isArray(triggerConfig)
+          ? (triggerConfig as Record<string, unknown>)
+          : {}
+      const merged = { ...prev, ...inc }
+      if (
+        typeof merged.webhookSecret !== 'string' ||
+        String(merged.webhookSecret).length < 24
+      ) {
+        merged.webhookSecret = generateWebhookSecret()
+      }
+      updateData.triggerConfig = merged
+    } else if (triggerType !== undefined) {
+      updateData.triggerType = triggerType
+      if (triggerConfig !== undefined) updateData.triggerConfig = triggerConfig
+    } else if (
+      triggerConfig !== undefined &&
+      existingFlow.triggerType === 'WEBHOOK'
+    ) {
+      const prev =
+        existingFlow.triggerConfig &&
+        typeof existingFlow.triggerConfig === 'object' &&
+        !Array.isArray(existingFlow.triggerConfig)
+          ? (existingFlow.triggerConfig as Record<string, unknown>)
+          : {}
+      const inc =
+        typeof triggerConfig === 'object' && !Array.isArray(triggerConfig)
+          ? (triggerConfig as Record<string, unknown>)
+          : {}
+      const merged = { ...prev, ...inc }
+      if (
+        typeof merged.webhookSecret !== 'string' ||
+        String(merged.webhookSecret).length < 24
+      ) {
+        merged.webhookSecret = generateWebhookSecret()
+      }
+      updateData.triggerConfig = merged
+    }
 
     // Update nodes and connections if provided
     if (nodes !== undefined || connections !== undefined) {

@@ -5,6 +5,7 @@
  */
 
 import { FlowContext, NodeExecutionResult, ExecutionLogEntry } from '../execution-engine'
+import { safeEvaluateConditionString } from '@/lib/flows/safe-condition'
 
 interface FlowNode {
   id: string
@@ -111,35 +112,7 @@ export class ConditionProcessor {
     condition: string,
     context: Record<string, any>
   ): boolean {
-    try {
-      // Replace variables in condition
-      let evaluated = condition
-      for (const [key, value] of Object.entries(context)) {
-        const regex = new RegExp(`\\$\\{${key}\\}`, 'g')
-        evaluated = evaluated.replace(regex, JSON.stringify(value))
-      }
-
-      // Also support dot notation
-      evaluated = evaluated.replace(/\$\{([^}]+)\}/g, (match, path) => {
-        const parts = path.split('.')
-        let value: any = context
-        for (const part of parts) {
-          if (value && typeof value === 'object') {
-            value = value[part]
-          } else {
-            return match
-          }
-        }
-        return value !== undefined ? JSON.stringify(value) : match
-      })
-
-      // Evaluate as JavaScript expression
-      // In production, use a safer evaluator like expr-eval
-      return Boolean(eval(evaluated))
-    } catch (error) {
-      console.error('Error evaluating condition:', error)
-      return false
-    }
+    return safeEvaluateConditionString(condition, context as Record<string, unknown>)
   }
 }
 

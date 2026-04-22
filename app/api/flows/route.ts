@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
+import { generateWebhookSecret } from '@/lib/flows/webhook-secret'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, tenantId, nodes, connections } = body
+    const {
+      name,
+      description,
+      tenantId,
+      nodes,
+      connections,
+      status: bodyStatus,
+      triggerType: bodyTriggerType,
+      triggerConfig: bodyTriggerConfig,
+    } = body
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -86,14 +96,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let initialStatus = 'DRAFT'
+    if (
+      typeof bodyStatus === 'string' &&
+      ['DRAFT', 'ACTIVE', 'PAUSED', 'ARCHIVED'].includes(bodyStatus)
+    ) {
+      initialStatus = bodyStatus
+    }
+
+    let initialTriggerType = 'MANUAL'
+    let initialTriggerConfig: Record<string, unknown> | undefined
+    if (bodyTriggerType === 'MANUAL') {
+      initialTriggerType = 'MANUAL'
+      initialTriggerConfig = {}
+    } else if (bodyTriggerType === 'WEBHOOK') {
+      initialTriggerType = 'WEBHOOK'
+      const inc =
+        bodyTriggerConfig &&
+        typeof bodyTriggerConfig === 'object' &&
+        !Array.isArray(bodyTriggerConfig)
+          ? (bodyTriggerConfig as Record<string, unknown>)
+          : {}
+      const merged = { ...inc }
+      if (
+        typeof merged.webhookSecret !== 'string' ||
+        String(merged.webhookSecret).length < 24
+      ) {
+        merged.webhookSecret = generateWebhookSecret()
+      }
+      initialTriggerConfig = merged
+    } else if (
+      typeof bodyTriggerType === 'string' &&
+      ['SCHEDULED', 'EVENT'].includes(bodyTriggerType)
+    ) {
+      initialTriggerType = bodyTriggerType
+      if (
+        bodyTriggerConfig &&
+        typeof bodyTriggerConfig === 'object' &&
+        !Array.isArray(bodyTriggerConfig)
+      ) {
+        initialTriggerConfig = bodyTriggerConfig as Record<string, unknown>
+      }
+    }
+
     // Create flow with nodes and connections
     const flow = await (prisma as any).flow.create({
       data: {
         name,
         description,
         tenantId: finalTenantId,
-        status: 'DRAFT',
-        triggerType: 'MANUAL',
+        status: initialStatus,
+        triggerType: initialTriggerType,
+        ...(initialTriggerConfig !== undefined
+          ? { triggerConfig: initialTriggerConfig }
+          : {}),
         nodes: nodes
           ? {
               create: nodes.map((node: any) => ({

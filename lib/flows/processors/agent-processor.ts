@@ -47,6 +47,15 @@ export class AgentProcessor {
         }
       }
 
+      if (agent.tenantId !== context.tenantId) {
+        return {
+          success: false,
+          error: 'Agent não pertence a este workspace',
+          logs,
+          duration: Date.now() - startTime,
+        }
+      }
+
       // Get persona separately if needed
       // Use type assertion since Prisma Client may need regeneration
       let persona: any = null
@@ -74,8 +83,25 @@ export class AgentProcessor {
       const input = this.getNodeInput(node, context)
 
       // Prepare agent prompt with context
-      const systemPrompt = this.buildSystemPrompt(agent, persona, node.config)
+      let systemPrompt = this.buildSystemPrompt(agent, persona, node.config)
       const userMessage = this.formatInput(input, node.config)
+
+      if (process.env.RAG_ENABLED === 'true') {
+        try {
+          const { searchRelevantContext } = await import('@/lib/embeddings/search')
+          const rag = await searchRelevantContext({
+            tenantId: context.tenantId,
+            agentId: agent.id,
+            query: userMessage.slice(0, 4000),
+            limit: 4,
+          })
+          if (rag) {
+            systemPrompt += `\n\nContexto relevante (base de conhecimento):\n${rag}`
+          }
+        } catch {
+          /* RAG opcional */
+        }
+      }
 
       // Execute agent (call LLM)
       const output = await this.callAgent(agent, persona, systemPrompt, userMessage)

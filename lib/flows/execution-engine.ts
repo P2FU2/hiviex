@@ -10,6 +10,7 @@ import type { NodeType, ProcessType, ExecutionStatus } from '@/lib/types/domain'
 import { AgentProcessor } from './processors/agent-processor'
 import { ProcessProcessor } from './processors/process-processor'
 import { ConditionProcessor } from './processors/condition-processor'
+import { safeEvaluateConditionString } from '@/lib/flows/safe-condition'
 
 interface FlowNode {
   id: string
@@ -35,6 +36,7 @@ interface FlowConnection {
 export interface FlowContext {
   executionId: string
   flowId: string
+  tenantId: string
   variables: Record<string, any>
   nodeOutputs: Map<string, any>
   nodeErrors: Map<string, string>
@@ -68,12 +70,14 @@ export class FlowExecutionEngine {
   constructor(
     executionId: string,
     flowId: string,
+    tenantId: string,
     nodes: FlowNode[],
     connections: FlowConnection[]
   ) {
     this.context = {
       executionId,
       flowId,
+      tenantId,
       variables: {},
       nodeOutputs: new Map(),
       nodeErrors: new Map(),
@@ -171,53 +175,13 @@ export class FlowExecutionEngine {
    */
   private evaluateCondition(condition: string, sourceNodeId: string): boolean {
     try {
-      // Get output from source node
-      const sourceOutput = this.context.nodeOutputs.get(sourceNodeId) || {}
-      
-      // Simple condition evaluation
-      // Supports: ${variable}, ${output.field}, etc.
-      let evaluatedCondition = condition
-      
-      // Replace variables
-      evaluatedCondition = evaluatedCondition.replace(
-        /\$\{([^}]+)\}/g,
-        (match, path) => {
-          const parts = path.split('.')
-          let value: any = sourceOutput
-          
-          for (const part of parts) {
-            if (value && typeof value === 'object') {
-              value = value[part]
-            } else {
-              return match
-            }
-          }
-          
-          return value !== undefined ? String(value) : match
-        }
-      )
+      const raw = this.context.nodeOutputs.get(sourceNodeId)
+      const ctx: Record<string, unknown> =
+        raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+          ? (raw as Record<string, unknown>)
+          : { value: raw as unknown }
 
-      // Evaluate as JavaScript expression (in production, use a safer evaluator)
-      // For now, support simple comparisons
-      if (evaluatedCondition.includes('==')) {
-        const [left, right] = evaluatedCondition.split('==').map((s) => s.trim())
-        return left === right
-      }
-      if (evaluatedCondition.includes('!=')) {
-        const [left, right] = evaluatedCondition.split('!=').map((s) => s.trim())
-        return left !== right
-      }
-      if (evaluatedCondition.includes('>')) {
-        const [left, right] = evaluatedCondition.split('>').map((s) => s.trim())
-        return Number(left) > Number(right)
-      }
-      if (evaluatedCondition.includes('<')) {
-        const [left, right] = evaluatedCondition.split('<').map((s) => s.trim())
-        return Number(left) < Number(right)
-      }
-
-      // Default: truthy check
-      return Boolean(evaluatedCondition)
+      return safeEvaluateConditionString(condition, ctx)
     } catch (error) {
       this.log(sourceNodeId, 'error', `Error evaluating condition: ${error}`)
       return false

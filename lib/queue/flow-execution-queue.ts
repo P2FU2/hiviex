@@ -23,8 +23,8 @@ export class FlowExecutionQueue {
       data,
       {
         jobId: `flow-exec-${data.executionId}`,
-        attempts: 2,
-        backoff: { type: 'exponential', delay: 4000 },
+        attempts: 4,
+        backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: { count: 200, age: 86400 },
         removeOnFail: { count: 500 },
       }

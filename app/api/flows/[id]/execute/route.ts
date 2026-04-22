@@ -7,10 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
-import { validateFlow } from '@/lib/flows/validators'
-import { FlowExecutionQueue } from '@/lib/queue/flow-execution-queue'
-import { getBullMQConnection } from '@/lib/redis/bullmq-connection'
-import { runFlowExecutionJob } from '@/lib/flows/run-flow-execution'
+import { startFlowExecution } from '@/lib/flows/start-flow-execution'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,103 +53,11 @@ export async function POST(
       return NextResponse.json({ error: 'Flow not found' }, { status: 404 })
     }
 
-    if (flow.status !== 'ACTIVE' && flow.status !== 'DRAFT') {
-      return NextResponse.json(
-        { error: 'Flow is not active' },
-        { status: 400 }
-      )
+    const started = await startFlowExecution(flow, input, { allowDraft: true })
+    if (!started.ok) {
+      return NextResponse.json(started.body, { status: started.status })
     }
-
-    // Validate flow before execution
-    const validation = validateFlow(flow.nodes, flow.connections)
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: 'Flow validation failed',
-          details: validation.errors,
-          warnings: validation.warnings,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Create execution record
-    const execution = await prisma.flowExecution.create({
-      data: {
-        flowId,
-        status: 'PENDING',
-        input,
-        logs: [
-          {
-            timestamp: new Date(),
-            nodeId: '',
-            nodeLabel: 'System',
-            level: 'info',
-            message: 'Flow execution started',
-          },
-          ...(validation.warnings.length > 0
-            ? validation.warnings.map((warning) => ({
-                timestamp: new Date(),
-                nodeId: '',
-                nodeLabel: 'System',
-                level: 'warning',
-                message: warning,
-              }))
-            : []),
-        ],
-      },
-    })
-
-    const redisConfigured = !!(
-      process.env.REDIS_URL?.trim() || process.env.REDIS_HOST?.trim()
-    )
-
-    if (!redisConfigured) {
-      if (process.env.NODE_ENV === 'production') {
-        await prisma.flowExecution.update({
-          where: { id: execution.id },
-          data: {
-            status: 'FAILED',
-            error: 'Redis não configurado — defina REDIS_URL ou REDIS_HOST para executar fluxos.',
-          },
-        })
-        return NextResponse.json(
-          {
-            error:
-              'Execução de fluxos em produção exige Redis (REDIS_URL). Configure o worker e tente novamente.',
-          },
-          { status: 503 }
-        )
-      }
-      void runFlowExecutionJob(execution.id, flow.tenantId).catch((err) =>
-        console.error('[flow execute] inline dev run failed', err)
-      )
-      return NextResponse.json(execution)
-    }
-
-    try {
-      const queue = new FlowExecutionQueue(getBullMQConnection())
-      await queue.enqueue({
-        executionId: execution.id,
-        tenantId: flow.tenantId,
-      })
-      await queue.close()
-    } catch (queueErr) {
-      console.error('Flow execution enqueue failed:', queueErr)
-      await prisma.flowExecution.update({
-        where: { id: execution.id },
-        data: {
-          status: 'FAILED',
-          error: 'Fila de execução indisponível. Verifique Redis e o worker.',
-        },
-      })
-      return NextResponse.json(
-        { error: 'Fila de jobs indisponível. Tente novamente em instantes.' },
-        { status: 503 }
-      )
-    }
-
-    return NextResponse.json(execution)
+    return NextResponse.json(started.execution)
   } catch (error) {
     console.error('Error executing flow:', error)
     return NextResponse.json(

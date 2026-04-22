@@ -92,6 +92,14 @@ export async function createTenant(
           role: TenantRole.OWNER,
         },
       },
+      subscriptions: {
+        create: {
+          status: 'INCOMPLETE',
+          planType: 'FREE',
+          monthlyRequests: 0,
+          monthlyRequestsLimit: 100,
+        },
+      },
     },
   })
 }

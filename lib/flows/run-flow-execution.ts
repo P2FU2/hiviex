@@ -4,11 +4,16 @@
 
 import { prisma } from '@/lib/db/prisma'
 import { FlowExecutionEngine } from '@/lib/flows/execution-engine'
+import { recordTenantUsage } from '@/lib/billing/usage'
+import { createLogger } from '@/lib/observability/logger'
+
+const log = createLogger('flow-run')
 
 export async function runFlowExecutionJob(
   executionId: string,
   expectedTenantId?: string
 ): Promise<void> {
+  const runStarted = Date.now()
   const execution = await prisma.flowExecution.findUnique({
     where: { id: executionId },
     include: {
@@ -71,6 +76,7 @@ export async function runFlowExecutionJob(
     const engine = new FlowExecutionEngine(
       executionId,
       flow.id,
+      flow.tenantId,
       flow.nodes,
       flow.connections
     )
@@ -87,6 +93,26 @@ export async function runFlowExecutionJob(
         error: result.success ? null : 'Flow execution failed',
       },
     })
+
+    const durationMs = Date.now() - runStarted
+    log.info('flow execution finished', {
+      executionId,
+      tenantId: flow.tenantId,
+      flowId: flow.id,
+      success: result.success,
+      durationMs,
+    })
+
+    if (result.success) {
+      try {
+        await recordTenantUsage(flow.tenantId, { feature: 'flow_execution' })
+      } catch (usageErr) {
+        log.error('recordTenantUsage failed after successful flow', usageErr, {
+          executionId,
+          tenantId: flow.tenantId,
+        })
+      }
+    }
 
     for (const [nodeId, nodeResult] of Array.from(result.nodeResults.entries())) {
       await prisma.flowNodeExecution.create({
@@ -105,7 +131,24 @@ export async function runFlowExecutionJob(
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('[runFlowExecutionJob]', executionId, error)
+    log.error('runFlowExecutionJob failed', error, {
+      executionId,
+      tenantId: execution.flow.tenantId,
+      flowId: execution.flow.id,
+    })
+    try {
+      const Sentry = await import('@sentry/nextjs')
+      Sentry.captureException(error, {
+        tags: { area: 'flow_execution' },
+        extra: {
+          executionId,
+          tenantId: execution.flow.tenantId,
+          flowId: execution.flow.id,
+        },
+      })
+    } catch {
+      /* Sentry opcional */
+    }
     await prisma.flowExecution.update({
       where: { id: executionId },
       data: {

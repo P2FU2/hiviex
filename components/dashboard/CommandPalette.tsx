@@ -18,6 +18,7 @@ import {
   ArrowRight,
   CalendarDays,
   Images,
+  Activity,
 } from 'lucide-react'
 import { useCommandPalette } from '@/contexts/CommandPaletteContext'
 
@@ -35,6 +36,7 @@ const STATIC_LINKS: { label: string; href: string; icon: typeof LayoutDashboard;
   { label: 'Biblioteca de mídia', href: '/dashboard/media', icon: Images, keywords: 'upload s3 r2 ficheiros' },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, keywords: 'métricas' },
   { label: 'Billing', href: '/dashboard/billing', icon: CreditCard, keywords: 'plano pagamento' },
+  { label: 'Estado do sistema', href: '/dashboard/status', icon: Activity, keywords: 'sentry health observabilidade' },
   { label: 'Definições', href: '/dashboard/settings', icon: Settings, keywords: 'conta perfil' },
 ]
 

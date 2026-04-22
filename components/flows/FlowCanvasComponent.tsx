@@ -20,7 +20,7 @@ import ReactFlow, {
   NodeMouseHandler,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Bot, Settings, Play, Save, Plus, Trash2, X, GitBranch, History, Layout, Instagram, FileText, Eye, ChevronDown } from 'lucide-react'
+import { Bot, Settings, Play, Save, Plus, Trash2, X, GitBranch, History, Layout, Instagram, FileText, Eye, ChevronDown, Webhook } from 'lucide-react'
 import AgentNode from '@/components/flows/AgentNode'
 import ProcessNode from '@/components/flows/ProcessNode'
 import PanelNode from '@/components/flows/PanelNode'
@@ -52,6 +52,11 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [flowName, setFlowName] = useState('Novo Flow')
+  const [triggerType, setTriggerType] = useState<'MANUAL' | 'WEBHOOK'>('MANUAL')
+  const [triggerConfig, setTriggerConfig] = useState<Record<string, unknown>>({})
+  const [flowStatus, setFlowStatus] = useState<
+    'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
+  >('DRAFT')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -162,6 +167,15 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       const data = await response.json()
       
       setFlowName(data.name || 'Sem nome')
+      setFlowStatus(data.status || 'DRAFT')
+      setTriggerType(data.triggerType === 'WEBHOOK' ? 'WEBHOOK' : 'MANUAL')
+      setTriggerConfig(
+        data.triggerConfig &&
+          typeof data.triggerConfig === 'object' &&
+          !Array.isArray(data.triggerConfig)
+          ? { ...(data.triggerConfig as Record<string, unknown>) }
+          : {}
+      )
       
       // Convert database nodes to ReactFlow nodes
       const flowNodes: Node[] = data.nodes.map((node: any) => {
@@ -248,6 +262,9 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       const flowData = {
         name: flowName.trim(),
         description: null,
+        status: flowStatus,
+        triggerType,
+        triggerConfig: triggerType === 'WEBHOOK' ? triggerConfig : {},
         nodes: nodes.map((node) => {
           let dbType = 'PROCESS'
           if (node.type === 'agent') dbType = 'AGENT'
@@ -316,6 +333,18 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       }
 
       const savedFlow = await response.json()
+      if (savedFlow.status) setFlowStatus(savedFlow.status)
+      if (savedFlow.triggerType === 'WEBHOOK') setTriggerType('WEBHOOK')
+      else if (savedFlow.triggerType === 'MANUAL') setTriggerType('MANUAL')
+      if (
+        savedFlow.triggerConfig &&
+        typeof savedFlow.triggerConfig === 'object' &&
+        !Array.isArray(savedFlow.triggerConfig)
+      ) {
+        setTriggerConfig({
+          ...(savedFlow.triggerConfig as Record<string, unknown>),
+        })
+      }
       if (flowId === 'new') {
         router.push(`/dashboard/flows/${savedFlow.id}`)
       } else {
@@ -529,10 +558,75 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
             </button>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-start gap-4 text-sm border-t border-gray-200/50 dark:border-white/10 pt-3">
+          <label className="flex items-center gap-2 text-black dark:text-white">
+            <span className="text-gray-500 dark:text-gray-400">Disparo</span>
+            <select
+              value={triggerType}
+              onChange={(e) =>
+                setTriggerType(e.target.value as 'MANUAL' | 'WEBHOOK')
+              }
+              className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-2 py-1 text-black dark:text-white"
+            >
+              <option value="MANUAL">Manual / Painel</option>
+              <option value="WEBHOOK">HTTP Webhook (n8n, Zapier…)</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-black dark:text-white">
+            <span className="text-gray-500 dark:text-gray-400">Estado</span>
+            <select
+              value={flowStatus}
+              onChange={(e) =>
+                setFlowStatus(
+                  e.target.value as
+                    | 'DRAFT'
+                    | 'ACTIVE'
+                    | 'PAUSED'
+                    | 'ARCHIVED'
+                )
+              }
+              className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-2 py-1 text-black dark:text-white"
+            >
+              <option value="DRAFT">Rascunho</option>
+              <option value="ACTIVE">Ativo</option>
+              <option value="PAUSED">Pausado</option>
+              <option value="ARCHIVED">Arquivado</option>
+            </select>
+          </label>
+          {flowId !== 'new' && triggerType === 'WEBHOOK' ? (
+            <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 max-w-xl">
+              <Webhook className="w-4 h-4 mt-0.5 shrink-0 text-violet-500" />
+              <div>
+                <p className="font-mono break-all text-black dark:text-white">
+                  {typeof window !== 'undefined'
+                    ? `${window.location.origin}/api/flows/${flowId}/webhook`
+                    : `/api/flows/${flowId}/webhook`}
+                </p>
+                <p className="mt-1">
+                  Cabeçalho{' '}
+                  <code className="bg-black/10 dark:bg-white/10 px-1 rounded">
+                    X-Hiviex-Webhook-Secret
+                  </code>{' '}
+                  ou{' '}
+                  <code className="bg-black/10 dark:bg-white/10 px-1 rounded">
+                    Authorization: Bearer …
+                  </code>
+                  . O flow deve estar <strong>Ativo</strong>. Guarde para gerar o
+                  segredo.
+                </p>
+                {typeof triggerConfig.webhookSecret === 'string' ? (
+                  <p className="mt-1 font-mono break-all opacity-90">
+                    Segredo: {String(triggerConfig.webhookSecret)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* ReactFlow Canvas */}
-      <div className="absolute inset-0 top-[73px] bg-black">
+      <div className="absolute inset-0 top-[168px] bg-black">
         <ReactFlow
           nodes={nodes.map(node => {
             // Shape nodes should have lower z-index to stay behind other nodes
