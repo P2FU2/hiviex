@@ -26,6 +26,7 @@
     "@auth/prisma-adapter": "^2.4.0",
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/lib-storage": "^3.490.0",
+    "@aws-sdk/s3-request-presigner": "^3.1034.0",
     "@hookform/resolvers": "^3.3.2",
     "@prisma/client": "^5.7.1",
     "@react-three/drei": "^9.104.3",
