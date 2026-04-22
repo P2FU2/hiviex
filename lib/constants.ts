@@ -45,9 +45,13 @@ export const SCENE_3D = {
 export const CURSOR = {
   Z_INDEX: 99999,
   SIZE: 24,
-  INTERACTIVE_SELECTORS: 'a,button,[role="button"],input,textarea,select,summary,label',
-  SMOOTHNESS: 0.2,
-  SCALE_ON_HOVER: 1.15,
+  INTERACTIVE_SELECTORS:
+    'a,button,[role="button"],input,textarea,select,summary,label,[tabindex]:not([tabindex="-1"])',
+  /** Interpolação posição por frame (maior = mais “colado” ao rato, mais responsivo). */
+  SMOOTHNESS: 0.58,
+  /** Velocidade da escala ao passar em elementos interativos. */
+  SCALE_SMOOTH: 0.42,
+  SCALE_ON_HOVER: 1.14,
 } as const
 
 // Header constants
