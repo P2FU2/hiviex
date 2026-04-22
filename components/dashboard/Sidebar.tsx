@@ -29,6 +29,9 @@ import {
   FileText,
   Sparkles,
   Book,
+  Plug,
+  CalendarDays,
+  Images,
 } from 'lucide-react'
 
 interface NavItem {
@@ -64,6 +67,21 @@ const navigation: NavItem[] = [
       { name: 'Criar Flow', href: '/dashboard/flows/new', icon: Sparkles },
       { name: 'Execuções', href: '/dashboard/flows/executions', icon: History },
     ],
+  },
+  {
+    name: 'Integrações',
+    href: '/dashboard/integrations',
+    icon: Plug,
+  },
+  {
+    name: 'Calendário',
+    href: '/dashboard/calendar',
+    icon: CalendarDays,
+  },
+  {
+    name: 'Mídia',
+    href: '/dashboard/media',
+    icon: Images,
   },
   {
     name: 'Analytics',

@@ -10,6 +10,7 @@ import { createProvider } from '@/lib/integrations/providers'
 import type { SocialPlatform } from '@/lib/types/domain'
 import { decrypt, encrypt } from '@/lib/utils/encryption'
 import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
+import { resolveAssetPublicUrl } from '@/lib/storage/object-storage'
 
 interface PublishingJobData {
   scheduledPostId: string
@@ -70,6 +71,12 @@ export class PublishingWorker {
 
     if (!post) {
       throw new Error(`Scheduled post ${scheduledPostId} not found`)
+    }
+
+    if (post.tenantId !== tenantId) {
+      throw new Error(
+        `Scheduled post ${scheduledPostId} tenant mismatch — job recusado.`
+      )
     }
 
     // 2. Atualizar status para PUBLISHING
@@ -141,8 +148,16 @@ export class PublishingWorker {
         expiresAt: account.tokenExpiresAt ?? undefined,
       }
 
-      // 6. Preparar URLs das mídias
-      const mediaUrls = post.mediaAssets.map((asset: any) => asset.cdnUrl || asset.s3Key)
+      // 6. Preparar URLs públicas (HTTPS) para APIs que puxam a mídia
+      const mediaUrls = post.mediaAssets.map((asset: any) =>
+        resolveAssetPublicUrl({
+          cdnUrl: asset.cdnUrl,
+          s3Key: asset.s3Key,
+        })
+      )
+      const mediaMimeTypes = post.mediaAssets.map(
+        (asset: any) => asset.mimeType as string
+      )
 
       // 7. Publicar
       const result = await provider.publishPost(tokensForPublish, mediaUrls, {
@@ -154,6 +169,7 @@ export class PublishingWorker {
         metadata: {
           pageId: account.platformPageId,
           igUserId: account.metadata?.igUserId,
+          mediaMimeTypes,
         },
       })
 

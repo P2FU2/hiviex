@@ -124,7 +124,7 @@ export async function POST(
           { status: 503 }
         )
       }
-      void runFlowExecutionJob(execution.id).catch((err) =>
+      void runFlowExecutionJob(execution.id, flow.tenantId).catch((err) =>
         console.error('[flow execute] inline dev run failed', err)
       )
       return NextResponse.json(execution)

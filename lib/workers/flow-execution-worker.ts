@@ -14,7 +14,7 @@ export class FlowExecutionWorker {
     this.worker = new Worker<FlowExecutionJobData>(
       'flow-execution',
       async (job: Job<FlowExecutionJobData>) => {
-        await runFlowExecutionJob(job.data.executionId)
+        await runFlowExecutionJob(job.data.executionId, job.data.tenantId)
       },
       {
         connection,

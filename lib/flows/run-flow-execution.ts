@@ -5,7 +5,10 @@
 import { prisma } from '@/lib/db/prisma'
 import { FlowExecutionEngine } from '@/lib/flows/execution-engine'
 
-export async function runFlowExecutionJob(executionId: string): Promise<void> {
+export async function runFlowExecutionJob(
+  executionId: string,
+  expectedTenantId?: string
+): Promise<void> {
   const execution = await prisma.flowExecution.findUnique({
     where: { id: executionId },
     include: {
@@ -23,6 +26,15 @@ export async function runFlowExecutionJob(executionId: string): Promise<void> {
 
   if (!execution) {
     throw new Error(`Flow execution ${executionId} not found`)
+  }
+
+  if (
+    expectedTenantId &&
+    execution.flow.tenantId !== expectedTenantId
+  ) {
+    throw new Error(
+      'Flow execution tenant mismatch — recusado por segurança multi-tenant.'
+    )
   }
 
   if (execution.status === 'COMPLETED' || execution.status === 'FAILED') {

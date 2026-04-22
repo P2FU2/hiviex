@@ -11,6 +11,22 @@ module.exports = {
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        surface: {
+          base: 'var(--surface-base)',
+          elevated: 'var(--surface-elevated)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          muted: 'var(--accent-muted)',
+        },
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.25rem',
+      },
+      boxShadow: {
+        'glass': '0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px var(--border-subtle)',
+        'glass-dark': '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px var(--border-subtle)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',

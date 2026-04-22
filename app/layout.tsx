@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
@@ -11,13 +11,33 @@ import Onboarding from '@/components/Onboarding'
 
 const inter = Inter({ subsets: ['latin'] })
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafafa' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
+
 export const metadata: Metadata = {
   title: {
     default: 'HIVIEX - Autonomous Creation Ecosystem',
     template: '%s | HIVIEX',
   },
-  description: 'Models that learn from each other. Systems that refine style, voice, and identity. Creation that continues while you sleep.',
-  keywords: ['AI', 'autonomous creation', 'artificial intelligence', 'creative AI', 'autonomous ecosystem'],
+  description:
+    'Hiviex — estúdio social e IA para criadores e agências: agentes, fluxos, integrações e publicação em escala.',
+  keywords: [
+    'social media',
+    'IA',
+    'criadores',
+    'agências',
+    'automação',
+    'Instagram',
+    'YouTube',
+    'Hiviex',
+  ],
   authors: [{ name: 'HIVIEX' }],
   creator: 'HIVIEX',
   publisher: 'HIVIEX',
@@ -47,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
         <SessionProvider>
           <ThemeProvider>

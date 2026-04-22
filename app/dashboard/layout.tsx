@@ -7,6 +7,7 @@
 import { getAuthSession } from '@/lib/auth/session'
 import DashboardSidebar from '@/components/dashboard/Sidebar'
 import DashboardHeader from '@/components/dashboard/Header'
+import DashboardProviders from '@/components/dashboard/DashboardProviders'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,18 +16,20 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getAuthSession()
+  await getAuthSession()
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      <DashboardHeader />
-      <div className="flex">
-        <DashboardSidebar />
-        <main className="flex-1 p-8">
-          {children}
-        </main>
+    <DashboardProviders>
+      <div className="dashboard-app min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)]">
+        <DashboardHeader />
+        <div className="flex">
+          <DashboardSidebar />
+          <main className="flex-1 p-6 sm:p-8 max-w-[1600px] w-full mx-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </DashboardProviders>
   )
 }
 

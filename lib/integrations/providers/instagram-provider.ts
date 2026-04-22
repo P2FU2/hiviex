@@ -107,8 +107,11 @@ export class InstagramProvider extends BaseSocialProvider {
         throw new Error('Page ID and Instagram User ID required')
       }
 
-      // 1. Criar container de mídia
-      const mediaType = mediaUrls[0]?.includes('.mp4') ? 'REELS' : 'IMAGE'
+      // 1. Criar container de mídia (MIME tem prioridade sobre extensão na URL)
+      const firstMime = options.metadata?.mediaMimeTypes?.[0] as string | undefined
+      const isVideo =
+        firstMime?.startsWith('video/') || mediaUrls[0]?.includes('.mp4')
+      const mediaType = isVideo ? 'REELS' : 'IMAGE'
       
       // Construir parâmetros, removendo valores undefined
       const containerParams: Record<string, string> = {

@@ -21,17 +21,24 @@ export default async function DashboardPage() {
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
   // Get statistics
-  const [workspacesCount, agentsCount, messagesCount] = await Promise.all([
-    prisma.tenant.count({
-      where: { id: { in: tenantIds } },
-    }),
-    prisma.agent.count({
-      where: { tenantId: { in: tenantIds } },
-    }),
-    prisma.message.count({
-      where: { tenantId: { in: tenantIds } },
-    }),
-  ])
+  const [workspacesCount, agentsCount, messagesCount, workflowsCount, flowsCount] =
+    await Promise.all([
+      prisma.tenant.count({
+        where: { id: { in: tenantIds } },
+      }),
+      prisma.agent.count({
+        where: { tenantId: { in: tenantIds } },
+      }),
+      prisma.message.count({
+        where: { tenantId: { in: tenantIds } },
+      }),
+      prisma.workflow.count({
+        where: { tenantId: { in: tenantIds } },
+      }),
+      prisma.flow.count({
+        where: { tenantId: { in: tenantIds } },
+      }),
+    ])
 
   return (
     <div className="space-y-8">
@@ -78,10 +85,10 @@ export default async function DashboardPage() {
           color="purple"
         />
         <StatCard
-          title="Workflows"
-          value={0}
+          title="Flows & workflows"
+          value={workflowsCount + flowsCount}
           icon={Workflow}
-          href="/dashboard/workflows"
+          href="/dashboard/flows"
           color="orange"
         />
       </div>

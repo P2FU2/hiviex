@@ -7,12 +7,15 @@
 'use client'
 
 import { signOut, useSession } from 'next-auth/react'
-import { User, LogOut, Settings, Sun, Moon } from 'lucide-react'
+import { LogOut, Settings, Sun, Moon, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useCommandPalette } from '@/contexts/CommandPaletteContext'
 import { useState, useEffect } from 'react'
 import { useThemeDetection } from '@/hooks/useThemeDetection'
 
 export default function DashboardHeader() {
   const { data: session } = useSession()
+  const { setOpen: openCommandPalette } = useCommandPalette()
   const [showMenu, setShowMenu] = useState(false)
   const [mounted, setMounted] = useState(false)
   const theme = useThemeDetection()
@@ -29,14 +32,35 @@ export default function DashboardHeader() {
   }
 
   return (
-    <header className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10 px-8 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold gradient-text">
-            HIVIEX
-          </h1>
+    <header className="sticky top-0 z-40 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/10 px-4 sm:px-8 py-3 sm:py-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard" className="shrink-0">
+            <h1 className="text-lg sm:text-xl font-bold gradient-text tracking-tight">
+              HIVIEX
+            </h1>
+          </Link>
+          <button
+            type="button"
+            onClick={() => openCommandPalette(true)}
+            className="hidden md:flex items-center gap-2 flex-1 max-w-md px-3 py-2 rounded-xl border border-gray-200/80 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 text-sm text-gray-500 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            <span className="truncate">Buscar ou ir para…</span>
+            <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-200/80 dark:bg-white/10 text-gray-600 dark:text-gray-400">
+              ⌘K
+            </kbd>
+          </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => openCommandPalette(true)}
+            className="md:hidden p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+            aria-label="Abrir busca"
+          >
+            <Search className="w-5 h-5 text-black dark:text-white" />
+          </button>
           {/* Theme Toggle */}
           {mounted && (
             <button
@@ -74,14 +98,22 @@ export default function DashboardHeader() {
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white/95 dark:bg-black/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 dark:border-white/10 py-2 z-50">
-              <a
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40"
+                aria-label="Fechar menu"
+                onClick={() => setShowMenu(false)}
+              />
+              <div className="absolute right-0 mt-2 w-56 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 dark:border-white/10 py-2 z-50">
+              <Link
                 href="/dashboard/settings"
                 className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
+                onClick={() => setShowMenu(false)}
               >
                 <Settings className="w-4 h-4" />
                 Settings
-              </a>
+              </Link>
               <button
                 onClick={() => signOut()}
                 className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-black/5 dark:hover:bg-white/5"
@@ -90,6 +122,7 @@ export default function DashboardHeader() {
                 Sign Out
               </button>
             </div>
+            </>
           )}
           </div>
         </div>
