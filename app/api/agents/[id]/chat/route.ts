@@ -111,12 +111,15 @@ export async function POST(
         }
       }
 
+      const { resolveLlmModel, resolveMaxOutputTokens } = await import(
+        '@/lib/llm/model-defaults'
+      )
       const llmResponse = await LLMProvider.call(systemPrompt, message, {
         provider: agent.provider || 'openai',
         apiKey,
-        model: agent.model || 'gpt-4',
-        temperature: agent.temperature || 0.7,
-        maxTokens: agent.maxTokens || 2000,
+        model: resolveLlmModel(agent.provider || 'openai', agent.model),
+        temperature: agent.temperature ?? 0.7,
+        maxTokens: resolveMaxOutputTokens(agent.maxTokens),
       })
 
       response = llmResponse.content

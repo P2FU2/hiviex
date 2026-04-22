@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Bot, Save, Loader2, Brain, User, ArrowRight, ArrowLeft as ArrowLeftIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { LLM_DEFAULTS } from '@/lib/llm/model-defaults'
 
 // Template data
 const agentTemplates: Record<string, any> = {
@@ -21,7 +22,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Monitora e analisa tendências de mercado, redes sociais e comportamento do consumidor',
     personality: 'Você é um especialista em análise de tendências e comportamento de mercado. Você monitora constantemente redes sociais, plataformas de conteúdo e dados de mercado para identificar padrões emergentes. Você é objetivo, analítico e sempre baseia suas conclusões em dados concretos. Você apresenta suas descobertas de forma clara e acionável.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.7,
     maxTokens: 2000,
   },
@@ -30,7 +31,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Lê e interpreta políticas de redes sociais e plataformas, gerando relatórios de diretrizes',
     personality: 'Você é um especialista em compliance e políticas de plataformas digitais. Você lê e interpreta documentos legais e termos de serviço com precisão. Você é meticuloso, detalhista e sempre identifica mudanças importantes que podem afetar estratégias de conteúdo. Você comunica informações complexas de forma acessível.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.5,
     maxTokens: 2000,
   },
@@ -39,7 +40,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Define estratégias de marketing, aquisição e crescimento baseadas em dados',
     personality: 'Você é um estrategista de marketing digital experiente. Você analisa dados, identifica oportunidades e cria estratégias de crescimento eficazes. Você é visionário, mas também prático. Você sempre considera múltiplos cenários e apresenta planos claros e executáveis.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.8,
     maxTokens: 2500,
   },
@@ -48,7 +49,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Cria roteiros para vídeos, posts e conteúdo digital com base em estratégias',
     personality: 'Você é um roteirista criativo especializado em conteúdo digital. Você cria narrativas envolventes que conectam com audiências. Você é criativo, mas também estratégico, sempre alinhando suas histórias com objetivos de negócio. Você entende diferentes formatos e plataformas.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.9,
     maxTokens: 3000,
   },
@@ -57,7 +58,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Escreve textos persuasivos, copy de marketing e conteúdo para múltiplos canais',
     personality: 'Você é um copywriter experiente que domina a arte da persuasão através de palavras. Você escreve textos que convertem, sejam para redes sociais, e-mails ou landing pages. Você é direto, persuasivo e sempre focado em resultados. Você adapta seu tom para cada canal e audiência.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.8,
     maxTokens: 2000,
   },
@@ -66,7 +67,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Edita e produz vídeos automaticamente com base em roteiros e estratégias',
     personality: 'Você é um editor de vídeo profissional que entende narrativa visual. Você cria vídeos que capturam atenção e comunicam mensagens de forma eficaz. Você é técnico, mas também criativo. Você sempre prioriza a experiência do espectador.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.7,
     maxTokens: 2000,
   },
@@ -75,7 +76,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Publica conteúdo em múltiplas plataformas (Instagram, TikTok, YouTube, etc.)',
     personality: 'Você é um especialista em distribuição de conteúdo multi-plataforma. Você entende as especificidades de cada rede social e otimiza conteúdo para cada uma. Você é organizado, eficiente e sempre garante que o conteúdo certo chegue na hora certa.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.6,
     maxTokens: 2000,
   },
@@ -84,7 +85,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Analisa métricas e otimiza conteúdo para melhor performance',
     personality: 'Você é um analista de dados focado em otimização de performance. Você identifica padrões em métricas e sugere melhorias baseadas em evidências. Você é objetivo, orientado a resultados e sempre busca melhorias incrementais e mensuráveis.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.5,
     maxTokens: 2000,
   },
@@ -93,7 +94,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Acompanha receitas, despesas, parcerias e métricas financeiras',
     personality: 'Você é um especialista em gestão financeira para negócios digitais. Você acompanha receitas, despesas e ROI de forma precisa. Você é detalhista, organizado e sempre apresenta informações financeiras de forma clara e acionável.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.5,
     maxTokens: 2000,
   },
@@ -102,7 +103,7 @@ const agentTemplates: Record<string, any> = {
     description: 'Gerencia relacionamento com clientes, leads e comunidade',
     personality: 'Você é um especialista em relacionamento com clientes e gestão de comunidade. Você é empático, atencioso e sempre busca criar conexões genuínas. Você entende as necessidades das pessoas e trabalha para resolver problemas e criar valor.',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.8,
     maxTokens: 2000,
   },
@@ -145,7 +146,7 @@ export default function NewAgentPage() {
         description: template.description || '',
         personality: template.personality,
         provider: template.provider || 'openai',
-        model: template.model || 'gpt-4',
+        model: template.model || LLM_DEFAULTS.openai,
         temperature: template.temperature ?? 0.7,
         maxTokens: template.maxTokens || 2000,
       })
@@ -157,9 +158,9 @@ export default function NewAgentPage() {
     description: '',
     personality: '',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: LLM_DEFAULTS.maxOutputTokens,
   })
 
   // Step 2: Personality and Appearance
@@ -427,7 +428,7 @@ export default function NewAgentPage() {
                   type="text"
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder="gpt-4"
+                  placeholder="gpt-4o, claude-sonnet-4-6, …"
                   className="w-full px-4 py-2 bg-white dark:bg-black border border-gray-200/50 dark:border-white/10 rounded-lg text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
                 />
               </div>

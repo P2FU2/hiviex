@@ -1,8 +1,8 @@
 /**
- * LLM Providers Integration
- * 
- * Integração com diferentes provedores de LLM (OpenAI, Anthropic, etc.)
+ * LLM Providers — OpenAI Chat Completions, Anthropic Messages, Cohere Chat v2.
  */
+
+import { LLM_DEFAULTS, resolveLlmModel, resolveMaxOutputTokens } from '@/lib/llm/model-defaults'
 
 interface LLMConfig {
   provider: string
@@ -21,10 +21,16 @@ interface LLMResponse {
   }
 }
 
+function anthropicExtractText(data: { content?: Array<{ type?: string; text?: string }> }): string {
+  const blocks = data.content
+  if (!Array.isArray(blocks)) return ''
+  return blocks
+    .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('\n')
+}
+
 export class LLMProvider {
-  /**
-   * Call LLM based on provider
-   */
   static async call(
     systemPrompt: string,
     userMessage: string,
@@ -42,9 +48,6 @@ export class LLMProvider {
     }
   }
 
-  /**
-   * Call OpenAI API
-   */
   private static async callOpenAI(
     systemPrompt: string,
     userMessage: string,
@@ -56,48 +59,44 @@ export class LLMProvider {
       throw new Error('OpenAI API key not configured')
     }
 
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || 'gpt-4',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-          temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
-        }),
-      })
+    const model = resolveLlmModel('openai', config.model)
+    const maxTokens = resolveMaxOutputTokens(config.maxTokens)
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(`OpenAI API error: ${JSON.stringify(error)}`)
-      }
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: config.temperature ?? 0.7,
+        max_tokens: maxTokens,
+      }),
+    })
 
-      const data = await response.json()
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`)
+    }
 
-      return {
-        content: data.choices[0]?.message?.content || '',
-        metadata: {
-          provider: 'openai',
-          model: config.model,
-          tokensUsed: data.usage?.total_tokens,
-        },
-      }
-    } catch (error) {
-      console.error('OpenAI API error:', error)
-      throw error
+    const data = await response.json()
+    const text = data.choices?.[0]?.message?.content ?? ''
+
+    return {
+      content: typeof text === 'string' ? text : '',
+      metadata: {
+        provider: 'openai',
+        model: data.model || model,
+        tokensUsed: data.usage?.total_tokens,
+      },
     }
   }
 
-  /**
-   * Call Anthropic API
-   */
   private static async callAnthropic(
     systemPrompt: string,
     userMessage: string,
@@ -109,51 +108,53 @@ export class LLMProvider {
       throw new Error('Anthropic API key not configured')
     }
 
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: config.model || 'claude-3-opus-20240229',
-          max_tokens: config.maxTokens || 2000,
-          temperature: config.temperature || 0.7,
-          system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: userMessage,
-            },
-          ],
-        }),
-      })
+    const model = resolveLlmModel('anthropic', config.model)
+    const maxTokens = resolveMaxOutputTokens(config.maxTokens)
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(`Anthropic API error: ${JSON.stringify(error)}`)
-      }
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        temperature: config.temperature ?? 0.7,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userMessage,
+          },
+        ],
+      }),
+    })
 
-      const data = await response.json()
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(`Anthropic API error: ${JSON.stringify(error)}`)
+    }
 
-      return {
-        content: data.content[0]?.text || '',
-        metadata: {
-          provider: 'anthropic',
-          model: config.model,
-          tokensUsed: data.usage?.input_tokens + data.usage?.output_tokens,
-        },
-      }
-    } catch (error) {
-      console.error('Anthropic API error:', error)
-      throw error
+    const data = await response.json()
+    const content = anthropicExtractText(data)
+
+    const inTok = typeof data.usage?.input_tokens === 'number' ? data.usage.input_tokens : 0
+    const outTok = typeof data.usage?.output_tokens === 'number' ? data.usage.output_tokens : 0
+
+    return {
+      content,
+      metadata: {
+        provider: 'anthropic',
+        model: data.model || model,
+        tokensUsed: inTok + outTok || undefined,
+      },
     }
   }
 
   /**
-   * Call Cohere API
+   * Cohere Chat API v2 (substitui /v1/generate legado).
    */
   private static async callCohere(
     systemPrompt: string,
@@ -166,47 +167,64 @@ export class LLMProvider {
       throw new Error('Cohere API key not configured')
     }
 
-    try {
-      const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`
+    const model = resolveLlmModel('cohere', config.model)
+    const maxTokens = resolveMaxOutputTokens(config.maxTokens)
 
-      const response = await fetch('https://api.cohere.ai/v1/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || 'command',
-          prompt: fullPrompt,
-          temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
-        }),
-      })
+    const response = await fetch('https://api.cohere.ai/v2/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        stream: false,
+        model,
+        temperature: config.temperature ?? 0.7,
+        max_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      }),
+    })
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(`Cohere API error: ${JSON.stringify(error)}`)
-      }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(`Cohere API error: ${JSON.stringify(error)}`)
+    }
 
-      const data = await response.json()
+    const data = await response.json()
+    const parts = data.message?.content
+    let text = ''
+    if (Array.isArray(parts)) {
+      text = parts
+        .map((b: { text?: string }) => (typeof b?.text === 'string' ? b.text : ''))
+        .join('')
+    }
 
-      return {
-        content: data.generations[0]?.text || '',
-        metadata: {
-          provider: 'cohere',
-          model: config.model,
-          tokensUsed: data.meta?.tokens?.input_tokens + data.meta?.tokens?.output_tokens,
-        },
-      }
-    } catch (error) {
-      console.error('Cohere API error:', error)
-      throw error
+    const billedIn =
+      typeof data.meta?.tokens?.input_tokens === 'number'
+        ? data.meta.tokens.input_tokens
+        : typeof data.meta?.billed_units?.input_tokens === 'number'
+          ? data.meta.billed_units.input_tokens
+          : 0
+    const billedOut =
+      typeof data.meta?.tokens?.output_tokens === 'number'
+        ? data.meta.tokens.output_tokens
+        : typeof data.meta?.billed_units?.output_tokens === 'number'
+          ? data.meta.billed_units.output_tokens
+          : 0
+
+    return {
+      content: text,
+      metadata: {
+        provider: 'cohere',
+        model: data.model || model,
+        tokensUsed: billedIn + billedOut || undefined,
+      },
     }
   }
 
-  /**
-   * Get API key from environment or user config
-   */
   static getApiKey(provider: string, userApiKey?: string): string | undefined {
     if (userApiKey) return userApiKey
 
@@ -220,3 +238,5 @@ export class LLMProvider {
   }
 }
 
+// Re-export for call sites that only need defaults
+export { LLM_DEFAULTS, resolveLlmModel, resolveMaxOutputTokens }

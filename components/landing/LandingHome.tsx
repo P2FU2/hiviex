@@ -2,9 +2,32 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowRight, Check, Clapperboard, GitBranch, Sparkles, Zap } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  Clapperboard,
+  Code2,
+  CreditCard,
+  GitBranch,
+  Instagram,
+  Sparkles,
+  Webhook,
+  Youtube,
+  Zap,
+} from 'lucide-react'
 import LandingNav from '@/components/landing/LandingNav'
 import BlurBackground from '@/components/BlurBackground'
+import { BILLING_PLANS } from '@/lib/billing/plans-catalog'
+
+function formatPlanPrice(eur: number) {
+  if (eur === 0) return '0€'
+  return new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(eur)
+}
 
 const fade = {
   initial: { opacity: 0, y: 12 },
@@ -135,6 +158,91 @@ export default function LandingHome() {
           </div>
         </section>
 
+        {/* Integrações — fluxo claro para configurar depois do login */}
+        <section
+          id="integracoes"
+          className="border-t border-[var(--border-subtle)] py-20 sm:py-28"
+        >
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <motion.div {...fade} className="mb-12 max-w-xl">
+              <h2 className="text-title text-[var(--text-primary)]">
+                Integrações que fazem sentido no mesmo sítio
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+                Ligue contas, webhooks e API no dashboard — sem saltar entre
+                consolas. O estado de cada serviço está em{' '}
+                <Link
+                  href="/status"
+                  className="font-medium text-[var(--accent)] hover:underline"
+                >
+                  /status
+                </Link>{' '}
+                e o mapa de variáveis na área autenticada.
+              </p>
+            </motion.div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  icon: Instagram,
+                  title: 'Redes sociais',
+                  desc: 'OAuth por workspace, calendário e publicação com filas em produção.',
+                  href: '/signin',
+                },
+                {
+                  icon: Youtube,
+                  title: 'Vídeo & ingestão',
+                  desc: 'Pipeline de média com armazenamento S3/R2 quando configurado.',
+                  href: '/signin',
+                },
+                {
+                  icon: Webhook,
+                  title: 'Webhooks de fluxo',
+                  desc: 'Dispare flows a partir de n8n, Zapier ou o seu backend.',
+                  href: '/features',
+                },
+                {
+                  icon: Code2,
+                  title: 'API & chaves',
+                  desc: 'Endpoints documentados no painel; ideal para automações internas.',
+                  href: '/signin',
+                },
+                {
+                  icon: CreditCard,
+                  title: 'Stripe',
+                  desc: 'Planos e Customer Portal quando STRIPE_SECRET_KEY está definido.',
+                  href: '/signin',
+                },
+                {
+                  icon: GitBranch,
+                  title: 'Flow Builder',
+                  desc: 'Canvas com atalhos, estados e revisão antes de activar.',
+                  href: '/features',
+                },
+              ].map((item, i) => (
+                <motion.div key={item.title} {...fade} transition={{ ...fade.transition, delay: i * 0.05 }}>
+                  <Link
+                    href={item.href}
+                    className="group flex h-full flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-5 transition-all duration-base hover:border-[var(--border-strong)] hover:shadow-premium-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-muted)] text-[var(--accent)]">
+                        <item.icon className="h-5 w-5" strokeWidth={1.75} />
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                    <h3 className="mt-4 text-base font-semibold text-[var(--text-primary)]">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                      {item.desc}
+                    </p>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Resultados / features */}
         <section id="resultados" className="py-20 sm:py-28">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -185,57 +293,78 @@ export default function LandingHome() {
             <motion.div {...fade} className="mb-10 max-w-xl">
               <h2 className="text-title text-[var(--text-primary)]">Planos claros</h2>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Escala à medida do workspace. Detalhes de faturação no dashboard.
+                Os valores abaixo espelham o catálogo interno. Após entrar, subscreva
+                ou faça upgrade em{' '}
+                <span className="font-medium text-[var(--text-primary)]">
+                  Faturação
+                </span>{' '}
+                (Stripe em produção).
               </p>
             </motion.div>
-            <div className="grid gap-4 lg:grid-cols-3">
-              {[
-                {
-                  name: 'Starter',
-                  price: '—',
-                  desc: 'Para experimentar fluxos e integrações.',
-                  feats: ['Workspaces', 'Agentes', 'Integrações sociais'],
-                },
-                {
-                  name: 'Professional',
-                  price: '—',
-                  desc: 'Equipas que publicam todos os dias.',
-                  feats: ['Tudo no Starter', 'Vídeo & legendas', 'Calendário editorial'],
-                  highlight: true,
-                },
-                {
-                  name: 'Enterprise',
-                  price: 'À medida',
-                  desc: 'SLA, SSO e requisitos de compliance.',
-                  feats: ['Volume elevado', 'Suporte dedicado', 'Roadmap conjunto'],
-                },
-              ].map((p, i) => (
-                <motion.div
-                  key={p.name}
-                  {...fade}
-                  transition={{ ...fade.transition, delay: i * 0.05 }}
-                  className={`flex flex-col rounded-2xl border p-6 transition-all duration-base ${
-                    p.highlight
-                      ? 'border-[var(--accent)] bg-[var(--accent-muted)]/40 shadow-premium-sm'
-                      : 'border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 hover:border-[var(--border-strong)]'
-                  }`}
-                >
-                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                    {p.name}
-                  </div>
-                  <div className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{p.price}</div>
-                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{p.desc}</p>
-                  <ul className="mt-6 flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                    {p.feats.map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-              ))}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {BILLING_PLANS.map((p, i) => {
+                const highlight = p.id === 'PROFESSIONAL'
+                const isEnterprise = p.id === 'ENTERPRISE'
+                return (
+                  <motion.div
+                    key={p.id}
+                    {...fade}
+                    transition={{ ...fade.transition, delay: i * 0.05 }}
+                    className={`flex flex-col rounded-2xl border p-6 transition-all duration-base ${
+                      highlight
+                        ? 'border-[var(--accent)] bg-[var(--accent-muted)]/40 shadow-premium-sm sm:scale-[1.02]'
+                        : 'border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 hover:border-[var(--border-strong)]'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                      {p.name}
+                    </div>
+                    <div className="mt-3 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                      {isEnterprise ? 'Desde ' : ''}
+                      {formatPlanPrice(p.price)}
+                      {!isEnterprise && p.price > 0 ? (
+                        <span className="text-sm font-normal text-[var(--text-tertiary)]">
+                          /mês
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                      {p.id === 'FREE'
+                        ? 'Para experimentar fluxos e integrações.'
+                        : p.id === 'STARTER'
+                          ? 'Equipas em arranque com publicação regular.'
+                          : p.id === 'PROFESSIONAL'
+                            ? 'Operações que publicam todos os dias.'
+                            : 'Volume, SLA e requisitos de compliance.'}
+                    </p>
+                    <ul className="mt-6 flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                      {p.features.map((f) => (
+                        <li key={f} className="flex gap-2">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href="/signin"
+                      className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                        highlight
+                          ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] dark:text-[var(--accent-foreground)]'
+                          : 'border border-[var(--border-strong)] text-[var(--text-primary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                      }`}
+                    >
+                      {p.id === 'FREE' ? 'Começar grátis' : 'Subscrever'}
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </motion.div>
+                )
+              })}
             </div>
+            <p className="mt-6 text-xs text-[var(--text-tertiary)]">
+              O operador da instância deve configurar Stripe e webhooks; até lá, os
+              planos mostram preços de referência e a faturação pode estar
+              indisponível.
+            </p>
           </div>
         </section>
 
@@ -278,6 +407,15 @@ export default function LandingHome() {
               <p className="mt-1 text-xs text-[var(--text-tertiary)]">Estúdio social e IA</p>
             </div>
             <div className="flex flex-wrap gap-6 text-xs text-[var(--text-secondary)]">
+              <Link href="/features" className="transition-colors hover:text-[var(--text-primary)]">
+                Funcionalidades
+              </Link>
+              <Link href="/changelog" className="transition-colors hover:text-[var(--text-primary)]">
+                Changelog
+              </Link>
+              <Link href="/status" className="transition-colors hover:text-[var(--text-primary)]">
+                Estado
+              </Link>
               <Link href="/privacy" className="transition-colors hover:text-[var(--text-primary)]">
                 Privacidade
               </Link>

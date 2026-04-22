@@ -10,6 +10,7 @@ import { hasTenantPermission, getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import type { TenantRole } from '@/lib/types/domain'
 import { z } from 'zod'
+import { resolveLlmModel } from '@/lib/llm/model-defaults'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         description: data.description,
         personality: data.personality,
         provider: data.provider || 'openai',
-        model: data.model || 'gpt-4',
+        model: resolveLlmModel(data.provider || 'openai', data.model),
         temperature: data.temperature ?? 0.7,
         maxTokens: data.maxTokens,
       },

@@ -19,6 +19,7 @@ import {
   CalendarDays,
   Images,
   Activity,
+  Code2,
 } from 'lucide-react'
 import { useCommandPalette } from '@/contexts/CommandPaletteContext'
 
@@ -32,6 +33,7 @@ const STATIC_LINKS: { label: string; href: string; icon: typeof LayoutDashboard;
   { label: 'Chat', href: '/dashboard/chat', icon: MessageSquare, keywords: 'conversa' },
   { label: 'Flow Builder', href: '/dashboard/flows', icon: GitBranch, keywords: 'automação workflow' },
   { label: 'Integrações sociais', href: '/dashboard/integrations', icon: Plug, keywords: 'oauth instagram youtube' },
+  { label: 'APIs e IA', href: '/dashboard/apis', icon: Code2, keywords: 'openai anthropic cohere chaves llm' },
   { label: 'Calendário editorial', href: '/dashboard/calendar', icon: CalendarDays, keywords: 'agendar posts conteúdo' },
   { label: 'Biblioteca de mídia', href: '/dashboard/media', icon: Images, keywords: 'upload s3 r2 ficheiros' },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, keywords: 'métricas' },

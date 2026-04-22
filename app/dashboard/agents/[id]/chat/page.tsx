@@ -1,21 +1,29 @@
 /**
- * Agent Chat Page
- * 
- * Interface de chat com o agente
+ * Chat direto com um agente — histórico + erros alinhados ao hub APIs & IA.
  */
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Send, Bot, User } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle } from 'lucide-react'
+
+type Role = 'user' | 'assistant'
+
+function mapApiRole(role: string): Role {
+  return role === 'USER' ? 'user' : 'assistant'
+}
 
 export default function AgentChatPage() {
   const params = useParams()
   const agentId = params.id as string
-  const [messages, setMessages] = useState<any[]>([])
+  const [messages, setMessages] = useState<
+    { id: string; role: Role; content: string; timestamp: Date; isError?: boolean }[]
+  >([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -26,12 +34,38 @@ export default function AgentChatPage() {
     scrollToBottom()
   }, [messages])
 
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true)
+    try {
+      const res = await fetch(`/api/agents/${agentId}/messages?limit=100`)
+      if (!res.ok) return
+      const data = await res.json()
+      const list = Array.isArray(data.messages) ? data.messages : []
+      setMessages(
+        list.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
+          id: m.id,
+          role: mapApiRole(m.role),
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+        }))
+      )
+    } finally {
+      setLoadingHistory(false)
+    }
+  }, [agentId])
+
+  useEffect(() => {
+    void loadHistory()
+  }, [loadHistory])
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    const text = input.trim()
+    if (!text || isLoading) return
 
     const userMessage = {
-      role: 'user',
-      content: input,
+      id: `local-${Date.now()}`,
+      role: 'user' as const,
+      content: text,
       timestamp: new Date(),
     }
 
@@ -43,28 +77,44 @@ export default function AgentChatPage() {
       const response = await fetch(`/api/agents/${agentId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: text }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        const errMsg = typeof data.error === 'string' ? data.error : `Erro ${response.status}`
         setMessages((prev) => [
           ...prev,
           {
-            role: 'assistant',
-            content: data.response,
+            id: `err-${Date.now()}`,
+            role: 'assistant' as const,
+            content: `${errMsg}\n\nConfigure chaves em APIs e IA (workspace).`,
             timestamp: new Date(),
+            isError: true,
           },
         ])
+        return
       }
-    } catch (error) {
-      console.error('Error sending message:', error)
+
       setMessages((prev) => [
         ...prev,
         {
-          role: 'assistant',
-          content: 'Erro ao enviar mensagem. Tente novamente.',
+          id: `a-${Date.now()}`,
+          role: 'assistant' as const,
+          content: typeof data.response === 'string' ? data.response : '',
           timestamp: new Date(),
+        },
+      ])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant' as const,
+          content: 'Erro de rede. Tente novamente.',
+          timestamp: new Date(),
+          isError: true,
         },
       ])
     } finally {
@@ -73,93 +123,115 @@ export default function AgentChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)] bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <Bot className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Comece uma conversa com o agente
-            </p>
+    <div className="flex h-[min(85vh,calc(100vh-12rem))] flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/80">
+      <div className="flex flex-1 flex-col gap-2 border-b border-[var(--border-subtle)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Chaves LLM por workspace:{' '}
+          <Link href="/dashboard/apis" className="font-medium text-[var(--accent)] hover:underline">
+            APIs e IA
+          </Link>
+        </p>
+      </div>
+      <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--surface-base)]/40 p-4">
+        {loadingHistory ? (
+          <div className="flex justify-center gap-2 py-12 text-sm text-[var(--text-secondary)]">
+            <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
+            A carregar…
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="py-12 text-center">
+            <Bot className="mx-auto mb-4 h-14 w-14 text-[var(--text-tertiary)]" strokeWidth={1} />
+            <p className="text-sm text-[var(--text-secondary)]">Comece uma conversa com o agente.</p>
           </div>
         ) : (
-          messages.map((message, idx) => (
+          messages.map((message) => (
             <div
-              key={idx}
-              className={`flex gap-4 ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
+              key={message.id}
+              className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                    message.isError ? 'bg-[var(--danger-muted)]' : 'bg-[var(--accent-muted)]'
+                  }`}
+                >
+                  {message.isError ? (
+                    <AlertCircle className="h-4 w-4 text-[var(--danger)]" />
+                  ) : (
+                    <Bot className="h-4 w-4 text-[var(--accent)]" strokeWidth={1.75} />
+                  )}
                 </div>
               )}
               <div
-                className={`max-w-[70%] rounded-lg p-4 ${
+                className={`max-w-[80%] rounded-xl px-4 py-2.5 ${
                   message.role === 'user'
-                    ? 'bg-black dark:bg-white text-white dark:text-black'
-                    : 'bg-gray-100 dark:bg-gray-800 text-black dark:text-white'
+                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                    : message.isError
+                      ? 'border border-[var(--danger)]/25 bg-[var(--danger-muted)] text-[var(--text-primary)]'
+                      : 'border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-primary)]'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                <p className="text-xs mt-2 opacity-60">
-                  {new Date(message.timestamp).toLocaleTimeString()}
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                {message.isError ? (
+                  <Link
+                    href="/dashboard/apis"
+                    className="mt-2 inline-block text-xs font-medium text-[var(--accent)] hover:underline"
+                  >
+                    Hub APIs e IA →
+                  </Link>
+                ) : null}
+                <p className="mt-1 text-[11px] opacity-70">
+                  {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </p>
               </div>
               {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] ring-1 ring-[var(--border-subtle)]">
+                  <User className="h-4 w-4 text-[var(--text-secondary)]" strokeWidth={1.75} />
                 </div>
               )}
             </div>
           ))
         )}
-        {isLoading && (
-          <div className="flex gap-4 justify-start">
-            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-              </div>
+        {isLoading ? (
+          <div className="flex justify-start gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-muted)]">
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />
             </div>
           </div>
-        )}
+        ) : null}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-200/50 dark:border-white/10 p-4">
+      <div className="border-t border-[var(--border-subtle)] p-4">
         <div className="flex gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                handleSend()
+                void handleSend()
               }
             }}
-            placeholder="Digite sua mensagem..."
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+            placeholder="Mensagem…"
+            className="flex-1 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-base)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-muted)]"
             disabled={isLoading}
           />
           <button
-            onClick={handleSend}
+            type="button"
+            onClick={() => void handleSend()}
             disabled={isLoading || !input.trim()}
-            className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-[var(--accent-foreground)] transition-premium hover:opacity-92 disabled:opacity-40"
+            aria-label="Enviar"
           >
-            <Send className="w-5 h-5" />
+            <Send className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
       </div>
     </div>
   )
 }
-

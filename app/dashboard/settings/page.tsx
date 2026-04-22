@@ -44,7 +44,7 @@ const PROVIDERS = [
     name: 'OpenAI',
     placeholder: 'sk-...',
     helpUrl: 'https://platform.openai.com/api-keys',
-    description: 'Para usar GPT-4, GPT-3.5 e outros modelos OpenAI',
+    description: 'Modelos OpenAI (GPT-4o, o1, etc.) — o runtime usa a API de chat',
   },
   {
     id: 'anthropic',

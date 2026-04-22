@@ -5,10 +5,17 @@
 import { isStripeConfigured } from '@/lib/billing/stripe-client'
 import { isObjectStorageConfigured } from '@/lib/storage/object-storage'
 
-export function getServiceFlags() {
-  const redisConfigured = !!(
+export function isRedisEnvConfigured(): boolean {
+  return !!(
     process.env.REDIS_URL?.trim() || process.env.REDIS_HOST?.trim()
   )
+}
+
+export function getServiceFlags() {
+  const redisConfigured = isRedisEnvConfigured()
+  const tokenKey =
+    process.env.TOKEN_ENCRYPTION_KEY?.trim() ||
+    process.env.ENCRYPTION_KEY?.trim()
   return {
     databaseUrl: !!process.env.DATABASE_URL?.trim(),
     redis: redisConfigured,
@@ -19,6 +26,6 @@ export function getServiceFlags() {
       process.env.SENTRY_DSN?.trim()
     ),
     nextAuth: !!process.env.NEXTAUTH_SECRET?.trim(),
-    tokenEncryption: !!process.env.TOKEN_ENCRYPTION_KEY?.trim(),
+    tokenEncryption: !!tokenKey,
   }
 }

@@ -189,7 +189,7 @@ model Agent {
   
   // LLM Configuration
   provider    String      @default("openai") // openai, anthropic, etc.
-  model       String      @default("gpt-4")
+  model       String      @default("gpt-4o")
   temperature Float       @default(0.7)
   maxTokens   Int?
   

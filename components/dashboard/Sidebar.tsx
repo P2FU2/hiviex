@@ -30,6 +30,7 @@ import {
   Clapperboard,
   PanelLeftClose,
   PanelLeft,
+  Code2,
 } from 'lucide-react'
 
 const STORAGE_KEY = 'hiviex-sidebar-collapsed'
@@ -68,6 +69,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: 'Integrações', href: '/dashboard/integrations', icon: Plug },
+  { name: 'APIs e IA', href: '/dashboard/apis', icon: Code2 },
   { name: 'Calendário', href: '/dashboard/calendar', icon: CalendarDays },
   { name: 'Mídia', href: '/dashboard/media', icon: Images },
   { name: 'Influenciadores AI', href: '/dashboard/influencers', icon: Sparkles },

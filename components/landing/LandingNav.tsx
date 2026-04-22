@@ -23,9 +23,13 @@ export default function LandingNav() {
   }
 
   const links = [
+    { href: '/features', label: 'Funcionalidades' },
     { href: '#produto', label: 'Produto' },
+    { href: '#integracoes', label: 'Integrações' },
     { href: '#resultados', label: 'Resultados' },
     { href: '#precos', label: 'Preços' },
+    { href: '/changelog', label: 'Changelog' },
+    { href: '/status', label: 'Estado' },
   ]
 
   return (
@@ -38,16 +42,26 @@ export default function LandingNav() {
           Hiviex
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="text-sm text-[var(--text-secondary)] transition-colors duration-fast hover:text-[var(--text-primary)]"
-            >
-              {l.label}
-            </a>
-          ))}
+        <nav className="hidden md:flex md:max-w-md lg:max-w-none md:flex-wrap md:justify-end items-center gap-x-4 gap-y-1 lg:gap-x-5">
+          {links.map((l) =>
+            l.href.startsWith('#') ? (
+              <a
+                key={l.href}
+                href={l.href}
+                className="text-[13px] text-[var(--text-secondary)] transition-colors duration-fast hover:text-[var(--text-primary)]"
+              >
+                {l.label}
+              </a>
+            ) : (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="text-[13px] text-[var(--text-secondary)] transition-colors duration-fast hover:text-[var(--text-primary)]"
+              >
+                {l.label}
+              </Link>
+            )
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -102,16 +116,27 @@ export default function LandingNav() {
       {open ? (
         <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-4 md:hidden">
           <div className="flex flex-col gap-3">
-            {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="text-sm text-[var(--text-secondary)]"
-                onClick={() => setOpen(false)}
-              >
-                {l.label}
-              </a>
-            ))}
+            {links.map((l) =>
+              l.href.startsWith('#') ? (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm text-[var(--text-secondary)]"
+                  onClick={() => setOpen(false)}
+                >
+                  {l.label}
+                </a>
+              ) : (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm text-[var(--text-secondary)]"
+                  onClick={() => setOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              )
+            )}
             {isAuthenticated ? (
               <Link href="/dashboard" className="text-sm font-medium text-[var(--accent)]" onClick={() => setOpen(false)}>
                 Abrir app

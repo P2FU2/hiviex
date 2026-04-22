@@ -10,6 +10,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Loader2, Trash2 } from 'lucide-react'
+import { LLM_DEFAULTS } from '@/lib/llm/model-defaults'
 
 export default function EditAgentPage() {
   const router = useRouter()
@@ -27,9 +28,9 @@ export default function EditAgentPage() {
     description: '',
     personality: '',
     provider: 'openai',
-    model: 'gpt-4',
+    model: LLM_DEFAULTS.openai,
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: LLM_DEFAULTS.maxOutputTokens,
     status: 'DRAFT' as 'ACTIVE' | 'INACTIVE' | 'DRAFT',
   })
 
@@ -47,7 +48,7 @@ export default function EditAgentPage() {
             provider: data.agent.provider,
             model: data.agent.model,
             temperature: data.agent.temperature,
-            maxTokens: data.agent.maxTokens || 2000,
+            maxTokens: data.agent.maxTokens || LLM_DEFAULTS.maxOutputTokens,
             status: data.agent.status,
           })
         }

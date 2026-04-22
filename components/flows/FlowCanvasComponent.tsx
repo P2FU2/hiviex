@@ -69,6 +69,24 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [isMenuCollapsed, setIsMenuCollapsed] = useState(false)
   const reactFlowInstanceRef = useRef<any>(null)
+  const [gridColor, setGridColor] = useState('#3f3f46')
+
+  useEffect(() => {
+    const sync = () => {
+      setGridColor(
+        document.documentElement.classList.contains('dark')
+          ? '#3f3f46'
+          : '#d4d4d8'
+      )
+    }
+    sync()
+    const obs = new MutationObserver(sync)
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+    return () => obs.disconnect()
+  }, [])
 
   // Load flow data and agents
   useEffect(() => {
@@ -506,8 +524,13 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-gray-600 dark:text-gray-400">Carregando Flow Builder...</div>
+      <div className="flex h-screen items-center justify-center bg-[var(--surface-base)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+          <p className="text-sm text-[var(--text-secondary)]">
+            A carregar Flow Builder…
+          </p>
+        </div>
       </div>
     )
   }
@@ -515,36 +538,36 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-white/90 dark:bg-black/90 backdrop-blur-sm border-b border-gray-200/50 dark:border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="absolute left-0 right-0 top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-glass)] p-4 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link
               href="/dashboard/flows"
-              className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors"
+              className="shrink-0 rounded-lg p-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--accent-muted)]"
             >
-              <X className="w-5 h-5 text-black dark:text-white" />
+              <X className="h-5 w-5" />
             </Link>
             <input
               type="text"
               value={flowName}
               onChange={(e) => setFlowName(e.target.value)}
-              className="text-xl font-bold bg-transparent border-none outline-none text-black dark:text-white px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
-              placeholder="Nome do Flow"
+              className="min-w-0 flex-1 text-lg font-semibold bg-transparent border-none outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] px-2 py-1 rounded-lg hover:bg-[var(--accent-muted)]/50 sm:text-xl"
+              placeholder="Nome do flow"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={handleExecute}
               disabled={flowId === 'new'}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-lg bg-[var(--success)] px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="w-4 h-4" />
-              Executar
+              <span className="hidden sm:inline">Executar</span>
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-[var(--text-primary)] px-3 py-2 text-sm font-medium text-[var(--surface-elevated)] transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
             >
               {isSaving ? (
                 <>
@@ -560,22 +583,22 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
             </button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-start gap-4 text-sm border-t border-gray-200/50 dark:border-white/10 pt-3">
-          <label className="flex items-center gap-2 text-black dark:text-white">
-            <span className="text-gray-500 dark:text-gray-400">Disparo</span>
+        <div className="mt-3 flex flex-wrap items-start gap-4 border-t border-[var(--border-subtle)] pt-3 text-sm">
+          <label className="flex items-center gap-2 text-[var(--text-primary)]">
+            <span className="text-[var(--text-tertiary)]">Disparo</span>
             <select
               value={triggerType}
               onChange={(e) =>
                 setTriggerType(e.target.value as 'MANUAL' | 'WEBHOOK')
               }
-              className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-2 py-1 text-black dark:text-white"
+              className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface-elevated)] px-2 py-1 text-[var(--text-primary)]"
             >
               <option value="MANUAL">Manual / Painel</option>
               <option value="WEBHOOK">HTTP Webhook (n8n, Zapier…)</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-black dark:text-white">
-            <span className="text-gray-500 dark:text-gray-400">Estado</span>
+          <label className="flex items-center gap-2 text-[var(--text-primary)]">
+            <span className="text-[var(--text-tertiary)]">Estado</span>
             <select
               value={flowStatus}
               onChange={(e) =>
@@ -587,7 +610,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
                     | 'ARCHIVED'
                 )
               }
-              className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-2 py-1 text-black dark:text-white"
+              className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface-elevated)] px-2 py-1 text-[var(--text-primary)]"
             >
               <option value="DRAFT">Rascunho</option>
               <option value="ACTIVE">Ativo</option>
@@ -596,21 +619,21 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
             </select>
           </label>
           {flowId !== 'new' && triggerType === 'WEBHOOK' ? (
-            <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 max-w-xl">
-              <Webhook className="w-4 h-4 mt-0.5 shrink-0 text-violet-500" />
+            <div className="flex max-w-xl items-start gap-2 text-xs text-[var(--text-secondary)]">
+              <Webhook className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
               <div>
-                <p className="font-mono break-all text-black dark:text-white">
+                <p className="break-all font-mono text-[var(--text-primary)]">
                   {typeof window !== 'undefined'
                     ? `${window.location.origin}/api/flows/${flowId}/webhook`
                     : `/api/flows/${flowId}/webhook`}
                 </p>
                 <p className="mt-1">
                   Cabeçalho{' '}
-                  <code className="bg-black/10 dark:bg-white/10 px-1 rounded">
+                  <code className="rounded bg-[var(--accent-muted)] px-1">
                     X-Hiviex-Webhook-Secret
                   </code>{' '}
                   ou{' '}
-                  <code className="bg-black/10 dark:bg-white/10 px-1 rounded">
+                  <code className="rounded bg-[var(--accent-muted)] px-1">
                     Authorization: Bearer …
                   </code>
                   . O flow deve estar <strong>Ativo</strong>. Guarde para gerar o
@@ -628,7 +651,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       </div>
 
       {/* ReactFlow Canvas */}
-      <div className="absolute inset-0 top-[168px] bg-black">
+      <div className="absolute inset-0 top-[168px] bg-[var(--surface-base)]">
         <ReactFlow
           nodes={nodes.map(node => {
             // Shape nodes should have lower z-index to stay behind other nodes
@@ -667,9 +690,9 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
           }}
           fitView
           panOnDrag={isPanOnDrag}
-          className="bg-black"
+          className="bg-[var(--surface-base)]"
         >
-        <Background color="#333" gap={16} />
+        <Background color={gridColor} gap={20} size={1} />
         <Controls />
         <MiniMap
           nodeColor={(node: Node) => {
@@ -685,15 +708,15 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
         {/* Top Right Panel - Add Nodes Menu (Always Visible, Collapsible) */}
         <Panel position="top-right" className="z-10">
-          <div className="bg-white/95 dark:bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-gray-200/50 dark:border-white/10 overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-glass)] shadow-[var(--shadow-md)] backdrop-blur-md">
             {/* Header with collapse button */}
-            <div className="flex items-center justify-between p-2 border-b border-gray-200/50 dark:border-white/10">
-              <h3 className="text-sm font-semibold text-black dark:text-white px-2">Adicionar</h3>
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-2">
+              <h3 className="px-2 text-sm font-semibold text-[var(--text-primary)]">Adicionar</h3>
               <button
                 onClick={() => setIsMenuCollapsed(!isMenuCollapsed)}
-                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-colors"
+                className="rounded p-1 text-[var(--text-primary)] transition-colors hover:bg-[var(--accent-muted)]"
               >
-                <ChevronDown className={`w-4 h-4 text-black dark:text-white transition-transform ${isMenuCollapsed ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 transition-transform ${isMenuCollapsed ? 'rotate-180' : ''}`} />
               </button>
             </div>
             
@@ -755,29 +778,29 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
         </Panel>
 
         {/* Bottom Left Panel - Stats */}
-        <Panel position="bottom-left" className="bg-white/90 dark:bg-black/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-          <div className="flex items-center gap-4 text-sm flex-wrap">
+        <Panel position="bottom-left" className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-glass)] p-3 shadow-[var(--shadow-md)] backdrop-blur-md">
+          <div className="flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-yellow-600" />
-              <span className="text-gray-600 dark:text-gray-400">Contexto</span>
+              <div className="h-3 w-3 rounded-full bg-yellow-600" />
+              <span className="text-[var(--text-secondary)]">Contexto</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-purple-600" />
-              <span className="text-gray-600 dark:text-gray-400">Processo</span>
+              <div className="h-3 w-3 rounded-full bg-purple-600" />
+              <span className="text-[var(--text-secondary)]">Processo</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-cyan-600" />
-              <span className="text-gray-600 dark:text-gray-400">Visualização</span>
+              <div className="h-3 w-3 rounded-full bg-cyan-600" />
+              <span className="text-[var(--text-secondary)]">Visualização</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-600" />
-              <span className="text-gray-600 dark:text-gray-400">Agente</span>
+              <div className="h-3 w-3 rounded-full bg-blue-600" />
+              <span className="text-[var(--text-secondary)]">Agente</span>
             </div>
-            <span className="text-gray-400 dark:text-gray-500">
-              • {nodes.length} cards • {edges.length} conexões
+            <span className="text-[var(--text-tertiary)]">
+              • {nodes.length} cards • {edges.length} ligações
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">
-              Espaço = Pan • Ctrl+D = Duplicar • Delete = Remover
+            <span className="text-xs text-[var(--text-tertiary)]">
+              Espaço = pan • ⌘/Ctrl+D = duplicar • Delete = remover
             </span>
           </div>
         </Panel>

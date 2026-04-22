@@ -249,12 +249,15 @@ export class AgentProcessor {
 
       const apiKey = metaKey || workspaceKey || undefined
 
+      const { resolveLlmModel, resolveMaxOutputTokens } = await import(
+        '@/lib/llm/model-defaults'
+      )
       const response = await LLMProvider.call(systemPrompt, userMessage, {
         provider: agent.provider || 'openai',
         apiKey,
-        model: agent.model || 'gpt-4',
-        temperature: agent.temperature || 0.7,
-        maxTokens: agent.maxTokens || 2000,
+        model: resolveLlmModel(agent.provider || 'openai', agent.model),
+        temperature: agent.temperature ?? 0.7,
+        maxTokens: resolveMaxOutputTokens(agent.maxTokens),
       })
 
       return {

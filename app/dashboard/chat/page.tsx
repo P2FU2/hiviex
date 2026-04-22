@@ -1,13 +1,12 @@
 /**
- * Chat Page - Estilo WhatsApp
- * 
- * Interface de chat com lista de conversas à esquerda e chat à direita
+ * Chat — lista de agentes + conversa, histórico da BD, erros explícitos e ligação ao hub APIs & IA.
  */
 
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Bot, User, ArrowLeft, Search, MoreVertical } from 'lucide-react'
+import Link from 'next/link'
+import { Send, Bot, User, ArrowLeft, Search, AlertCircle, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
 interface Message {
@@ -17,6 +16,7 @@ interface Message {
   agentId?: string
   agentName?: string
   timestamp: Date
+  isError?: boolean
 }
 
 interface Conversation {
@@ -29,23 +29,29 @@ interface Conversation {
   unreadCount: number
 }
 
+function mapApiRole(role: string): 'user' | 'assistant' {
+  if (role === 'USER') return 'user'
+  return 'assistant'
+}
+
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [agents, setAgents] = useState<any[]>([])
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +68,7 @@ export default function ChatPage() {
           agentId: agent.id,
           agentName: agent.name,
           agentAvatar: agent.avatarUrl,
-          lastMessage: 'Comece uma conversa...',
+          lastMessage: 'Comece uma conversa…',
           lastMessageTime: new Date(),
           unreadCount: 0,
         }))
@@ -79,9 +85,27 @@ export default function ChatPage() {
     }
   }, [])
 
-  const loadMessages = useCallback(async (_agentId: string) => {
-    // In production, load from API
+  const loadMessages = useCallback(async (agentId: string) => {
+    setIsLoadingHistory(true)
     setMessages([])
+    try {
+      const res = await fetch(`/api/agents/${agentId}/messages?limit=100`)
+      if (!res.ok) return
+      const data = await res.json()
+      const list = Array.isArray(data.messages) ? data.messages : []
+      setMessages(
+        list.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
+          id: m.id,
+          role: mapApiRole(m.role),
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+        }))
+      )
+    } catch {
+      setMessages([])
+    } finally {
+      setIsLoadingHistory(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -91,10 +115,11 @@ export default function ChatPage() {
   const handleSend = async () => {
     if (!input.trim() || !selectedConversation || isLoading) return
 
+    const text = input.trim()
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: text,
       timestamp: new Date(),
     }
 
@@ -102,13 +127,12 @@ export default function ChatPage() {
     setInput('')
     setIsLoading(true)
 
-    // Update conversation last message
     setConversations((prev) =>
       prev.map((conv) =>
         conv.id === selectedConversation
           ? {
               ...conv,
-              lastMessage: input.trim(),
+              lastMessage: text,
               lastMessageTime: new Date(),
             }
           : conv
@@ -119,35 +143,67 @@ export default function ChatPage() {
       const response = await fetch(`/api/agents/${selectedConversation}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input.trim() }),
+        body: JSON.stringify({ message: text }),
       })
 
-      if (!response.ok) throw new Error('Failed to send message')
-
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
       const selectedAgent = agents.find((a) => a.id === selectedConversation)
+
+      if (!response.ok) {
+        const errMsg =
+          typeof data.error === 'string'
+            ? data.error
+            : `Pedido falhou (${response.status}).`
+        const extra =
+          data.code === 'USAGE_LIMIT_EXCEEDED'
+            ? '\n\nLimite do plano ou quota mensal atingida.'
+            : ''
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            role: 'assistant',
+            content: `${errMsg}${extra}\n\nSe faltar chave de API, configure em «APIs e IA» ou nas definições do workspace (owner/admin).`,
+            agentId: selectedConversation,
+            agentName: selectedAgent?.name,
+            timestamp: new Date(),
+            isError: true,
+          },
+        ])
+        return
+      }
 
       const assistantMessage: Message = {
         id: `msg-${Date.now() + 1}`,
         role: 'assistant',
-        content: data.response,
+        content: typeof data.response === 'string' ? data.response : '',
         agentId: selectedConversation,
         agentName: selectedAgent?.name,
         timestamp: new Date(),
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (error) {
-      console.error('Error sending message:', error)
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content:
+            'Erro de rede ou timeout. Tente novamente.\n\nSe persistir, verifique o estado do serviço e as chaves em APIs e IA.',
+          timestamp: new Date(),
+          isError: true,
+        },
+      ])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
@@ -157,93 +213,98 @@ export default function ChatPage() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white dark:bg-black">
-      {/* Conversations List */}
-      <div className="w-1/3 border-r border-gray-200 dark:border-white/10 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-black dark:text-white">Chats</h2>
-            <button className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg">
-              <MoreVertical className="w-5 h-5 text-black dark:text-white" />
-            </button>
+    <div className="flex min-h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/60 md:flex-row md:h-[calc(100vh-7rem)]">
+      {/* Lista */}
+      <div className="flex w-full flex-col border-b border-[var(--border-subtle)] md:w-[min(100%,320px)] md:border-b-0 md:border-r">
+        <div className="border-b border-[var(--border-subtle)] p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              Chats
+            </h2>
+            <Link
+              href="/dashboard/apis"
+              className="text-xs font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              APIs &amp; IA
+            </Link>
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar conversas..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-900 rounded-lg text-black dark:text-white text-sm"
+              placeholder="Buscar agentes…"
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] py-2 pl-10 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-muted)]"
             />
           </div>
         </div>
 
-        {/* Conversations */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => setSelectedConversation(conv.id)}
-              className={`w-full p-4 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
-                selectedConversation === conv.id
-                  ? 'bg-black/5 dark:bg-white/5 border-l-2 border-black dark:border-white'
-                  : ''
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                {conv.agentAvatar ? (
-                  <Image
-                    src={conv.agentAvatar}
-                    alt={conv.agentName}
-                    width={48}
-                    height={48}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                )}
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-black dark:text-white truncate">
-                    {conv.agentName}
-                  </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-                    {new Date(conv.lastMessageTime).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
+        <div className="max-h-[40vh] flex-1 overflow-y-auto md:max-h-none">
+          {filteredConversations.length === 0 ? (
+            <div className="p-6 text-center text-sm text-[var(--text-secondary)]">
+              Nenhum agente.{' '}
+              <Link href="/dashboard/agents/new" className="font-medium text-[var(--accent)] hover:underline">
+                Criar agente
+              </Link>
+            </div>
+          ) : (
+            filteredConversations.map((conv) => (
+              <button
+                key={conv.id}
+                type="button"
+                onClick={() => setSelectedConversation(conv.id)}
+                className={`flex w-full items-center gap-3 p-4 text-left transition-premium hover:bg-[var(--accent-muted)] ${
+                  selectedConversation === conv.id
+                    ? 'border-l-2 border-[var(--accent)] bg-[var(--accent-muted)]'
+                    : 'border-l-2 border-transparent'
+                }`}
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)]">
+                  {conv.agentAvatar ? (
+                    <Image
+                      src={conv.agentAvatar}
+                      alt={conv.agentName}
+                      width={48}
+                      height={48}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <Bot className="h-6 w-6 text-[var(--accent)]" strokeWidth={1.5} />
+                  )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                  {conv.lastMessage}
-                </p>
-              </div>
-              {conv.unreadCount > 0 && (
-                <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-medium flex items-center justify-center flex-shrink-0">
-                  {conv.unreadCount}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-0.5 flex items-center justify-between gap-2">
+                    <h3 className="truncate font-medium text-[var(--text-primary)]">{conv.agentName}</h3>
+                    <span className="shrink-0 text-xs text-[var(--text-tertiary)]">
+                      {new Date(conv.lastMessageTime).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <p className="truncate text-sm text-[var(--text-secondary)]">{conv.lastMessage}</p>
                 </div>
-              )}
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Área de mensagens */}
+      <div className="flex min-h-[50vh] flex-1 flex-col md:min-h-0">
         {selectedConversation && selectedConv ? (
           <>
-            {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-white/10 flex items-center gap-3">
+            <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] p-4">
               <button
+                type="button"
                 onClick={() => setSelectedConversation(null)}
-                className="md:hidden p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg"
+                className="rounded-lg p-2 text-[var(--text-secondary)] transition-premium hover:bg-[var(--surface-base)] md:hidden"
+                aria-label="Voltar"
               >
-                <ArrowLeft className="w-5 h-5 text-black dark:text-white" />
+                <ArrowLeft className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-muted)]">
                 {selectedConv.agentAvatar ? (
                   <Image
                     src={selectedConv.agentAvatar}
@@ -253,60 +314,76 @@ export default function ChatPage() {
                     className="rounded-full"
                   />
                 ) : (
-                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <Bot className="h-5 w-5 text-[var(--accent)]" strokeWidth={1.5} />
                 )}
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-black dark:text-white">
-                  {selectedConv.agentName}
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Online</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-[var(--text-primary)]">{selectedConv.agentName}</h3>
+                <p className="text-xs text-[var(--text-tertiary)]">Assistente · respostas via LLM configurado</p>
               </div>
-              <button className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg">
-                <MoreVertical className="w-5 h-5 text-black dark:text-white" />
-              </button>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
-              {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <Bot className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-                      Comece uma conversa
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Envie uma mensagem para {selectedConv.agentName}
-                    </p>
-                  </div>
+            <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--surface-base)]/50 p-4">
+              {isLoadingHistory ? (
+                <div className="flex h-full items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
+                  A carregar histórico…
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                  <Bot className="mb-4 h-14 w-14 text-[var(--text-tertiary)]" strokeWidth={1} />
+                  <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                    Nova conversa
+                  </h3>
+                  <p className="max-w-sm text-sm text-[var(--text-secondary)]">
+                    Mensagens são guardadas no workspace. Garanta uma chave de API do mesmo{' '}
+                    <em>provider</em> do agente em{' '}
+                    <Link href="/dashboard/apis" className="font-medium text-[var(--accent)] hover:underline">
+                      APIs e IA
+                    </Link>
+                    .
+                  </p>
                 </div>
               ) : (
                 messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex gap-3 ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
+                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {message.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          message.isError ? 'bg-[var(--danger-muted)]' : 'bg-[var(--accent-muted)]'
+                        }`}
+                      >
+                        {message.isError ? (
+                          <AlertCircle className="h-4 w-4 text-[var(--danger)]" strokeWidth={1.75} />
+                        ) : (
+                          <Bot className="h-4 w-4 text-[var(--accent)]" strokeWidth={1.75} />
+                        )}
                       </div>
                     )}
                     <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
+                      className={`max-w-[min(100%,560px)] rounded-xl px-4 py-2.5 ${
                         message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-black dark:text-white'
+                          ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                          : message.isError
+                            ? 'border border-[var(--danger)]/30 bg-[var(--danger-muted)] text-[var(--text-primary)]'
+                            : 'border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-primary)]'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
+                      {message.isError ? (
+                        <Link
+                          href="/dashboard/apis"
+                          className="mt-2 inline-block text-xs font-medium text-[var(--accent)] hover:underline"
+                        >
+                          Abrir hub APIs e IA →
+                        </Link>
+                      ) : null}
                       <div
-                        className={`text-xs mt-1 ${
-                          message.role === 'user'
-                            ? 'text-blue-100'
-                            : 'text-gray-500 dark:text-gray-400'
+                        className={`mt-1 text-[11px] ${
+                          message.role === 'user' ? 'opacity-80' : 'text-[var(--text-tertiary)]'
                         }`}
                       >
                         {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
@@ -316,8 +393,8 @@ export default function ChatPage() {
                       </div>
                     </div>
                     {message.role === 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                        <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] ring-1 ring-[var(--border-subtle)]">
+                        <User className="h-4 w-4 text-[var(--text-secondary)]" strokeWidth={1.75} />
                       </div>
                     )}
                   </div>
@@ -326,36 +403,42 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-black">
-              <div className="flex items-center gap-3">
+            <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
+              <div className="flex items-end gap-3">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Digite sua mensagem..."
-                  rows={1}
-                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+                  onKeyDown={handleKeyDown}
+                  placeholder="Escreva a mensagem… (Enter envia, Shift+Enter nova linha)"
+                  rows={2}
+                  className="min-h-[48px] flex-1 resize-none rounded-xl border border-[var(--border-strong)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-muted)]"
+                  disabled={isLoading}
                 />
                 <button
-                  onClick={handleSend}
+                  type="button"
+                  onClick={() => void handleSend()}
                   disabled={!input.trim() || isLoading}
-                  className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-foreground)] transition-premium hover:opacity-92 disabled:pointer-events-none disabled:opacity-40"
+                  aria-label="Enviar"
                 >
-                  <Send className="w-5 h-5" />
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.75} />
+                  ) : (
+                    <Send className="h-5 w-5" strokeWidth={1.75} />
+                  )}
                 </button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex flex-1 items-center justify-center p-8">
             <div className="text-center">
-              <Bot className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-                Selecione uma conversa
+              <Bot className="mx-auto mb-4 h-14 w-14 text-[var(--text-tertiary)]" strokeWidth={1} />
+              <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                Selecione um agente
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Escolha uma conversa da lista para começar
+              <p className="text-sm text-[var(--text-secondary)]">
+                Escolha um agente à esquerda para ver o histórico e conversar.
               </p>
             </div>
           </div>
