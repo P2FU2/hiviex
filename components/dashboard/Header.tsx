@@ -1,7 +1,5 @@
 /**
- * Dashboard Header Component
- * 
- * Top header bar with user menu and notifications
+ * Top bar — alinhamento, busca (⌘K), tema, utilizador.
  */
 
 'use client'
@@ -12,6 +10,7 @@ import Link from 'next/link'
 import { useCommandPalette } from '@/contexts/CommandPaletteContext'
 import { useState, useEffect } from 'react'
 import { useThemeDetection } from '@/hooks/useThemeDetection'
+import { THEME_STORAGE_KEY } from '@/lib/constants'
 
 export default function DashboardHeader() {
   const { data: session } = useSession()
@@ -28,106 +27,105 @@ export default function DashboardHeader() {
     const newTheme = theme === 'dark' ? 'light' : 'dark'
     document.documentElement.classList.remove('light', 'dark')
     document.documentElement.classList.add(newTheme)
-    localStorage.setItem('theme', newTheme)
+    localStorage.setItem(THEME_STORAGE_KEY, newTheme)
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/10 px-4 sm:px-8 py-3 sm:py-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard" className="shrink-0">
-            <h1 className="text-lg sm:text-xl font-bold gradient-text tracking-tight">
-              HIVIEX
-            </h1>
+    <header className="sticky top-0 z-40 h-14 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)]/85 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--surface-elevated)]/70">
+      <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between gap-4 px-4 lg:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="shrink-0 text-sm font-semibold tracking-tight text-[var(--text-primary)] transition-opacity hover:opacity-80"
+          >
+            Hiviex
           </Link>
           <button
             type="button"
             onClick={() => openCommandPalette(true)}
-            className="hidden md:flex items-center gap-2 flex-1 max-w-md px-3 py-2 rounded-xl border border-gray-200/80 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 text-sm text-gray-500 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
+            className="hidden min-w-0 flex-1 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)]/80 px-3 py-2 text-left text-sm text-[var(--text-tertiary)] transition-premium hover:border-[var(--border-strong)] hover:text-[var(--text-secondary)] md:flex md:max-w-md"
           >
-            <Search className="w-4 h-4 shrink-0" />
-            <span className="truncate">Buscar ou ir para…</span>
-            <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-200/80 dark:bg-white/10 text-gray-600 dark:text-gray-400">
+            <Search className="h-4 w-4 shrink-0 opacity-70" />
+            <span className="truncate">Buscar ou navegar…</span>
+            <kbd className="ml-auto hidden rounded border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-tertiary)] sm:inline-block">
               ⌘K
             </kbd>
           </button>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
             onClick={() => openCommandPalette(true)}
-            className="md:hidden p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
-            aria-label="Abrir busca"
+            className="rounded-lg p-2 text-[var(--text-secondary)] transition-premium hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)] md:hidden"
+            aria-label="Buscar"
           >
-            <Search className="w-5 h-5 text-black dark:text-white" />
+            <Search className="h-5 w-5" />
           </button>
-          {/* Theme Toggle */}
+
           {mounted && (
             <button
+              type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              aria-label="Toggle theme"
+              className="rounded-lg p-2 text-[var(--text-secondary)] transition-premium hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)]"
+              aria-label="Tema"
             >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-black dark:text-white" />
-              ) : (
-                <Moon className="w-5 h-5 text-black dark:text-white" />
-              )}
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
           )}
 
-          {/* User Menu */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 rounded-lg py-1.5 pl-1 pr-2 transition-premium hover:bg-[var(--surface-base)] sm:gap-3 sm:pr-3"
             >
-            <div className="w-8 h-8 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black text-sm font-medium">
-              {session?.user?.name?.charAt(0).toUpperCase() ||
-                session?.user?.email?.charAt(0).toUpperCase() ||
-                'U'}
-            </div>
-            <div className="text-left hidden md:block">
-              <p className="text-sm font-medium text-black dark:text-white">
-                {session?.user?.name || 'User'}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                {session?.user?.email}
-              </p>
-            </div>
-          </button>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text-primary)] text-xs font-medium text-[var(--surface-elevated)] dark:bg-white dark:text-zinc-900">
+                {session?.user?.name?.charAt(0).toUpperCase() ||
+                  session?.user?.email?.charAt(0).toUpperCase() ||
+                  'U'}
+              </div>
+              <div className="hidden text-left md:block">
+                <p className="max-w-[140px] truncate text-sm font-medium text-[var(--text-primary)]">
+                  {session?.user?.name || 'Conta'}
+                </p>
+                <p className="max-w-[140px] truncate text-xs text-[var(--text-tertiary)]">
+                  {session?.user?.email}
+                </p>
+              </div>
+            </button>
 
-          {showMenu && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-40"
-                aria-label="Fechar menu"
-                onClick={() => setShowMenu(false)}
-              />
-              <div className="absolute right-0 mt-2 w-56 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 dark:border-white/10 py-2 z-50">
-              <Link
-                href="/dashboard/settings"
-                className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
-                onClick={() => setShowMenu(false)}
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </Link>
-              <button
-                onClick={() => signOut()}
-                className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-black/5 dark:hover:bg-white/5"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
-            </div>
-            </>
-          )}
+            {showMenu ? (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-40"
+                  aria-label="Fechar menu"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-1 shadow-premium-md">
+                  <Link
+                    href="/dashboard/settings"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Definições
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => signOut()}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[var(--danger)] transition-colors hover:bg-[var(--danger-muted)]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sair
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
     </header>
   )
 }
-

@@ -4,7 +4,7 @@ import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import SessionProvider from '@/components/providers/SessionProvider'
-import Cursor from '@/components/Cursor'
+import ConditionalCursor from '@/components/ConditionalCursor'
 import CookieConsent from '@/components/CookieConsent'
 import AuthModal from '@/components/AuthModal'
 import Onboarding from '@/components/Onboarding'
@@ -68,11 +68,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} antialiased`}>
         <SessionProvider>
           <ThemeProvider>
             <AuthProvider>
-              <Cursor />
+              <ConditionalCursor />
               <CookieConsent />
               <AuthModal />
               <Onboarding />

@@ -7,7 +7,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Key, User, Plus, Trash2, HelpCircle, ExternalLink } from 'lucide-react'
+import {
+  Save,
+  Key,
+  User,
+  Plus,
+  Trash2,
+  HelpCircle,
+  ExternalLink,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
+import {
+  dashBtnPrimary,
+  dashBtnSecondary,
+  dashInput,
+  dashLabel,
+  dashLink,
+} from '@/lib/dashboard-ui'
 
 interface ApiKey {
   id: string
@@ -170,52 +190,66 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-gray-600 dark:text-gray-400">Carregando...</div>
+      <div className="space-y-10">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-4 w-full max-w-md" />
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </Card>
+          <Card>
+            <Skeleton className="h-6 w-24" />
+            <div className="mt-4 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-black dark:text-white">
-          Configurações
-        </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Gerencie suas configurações e API keys
-        </p>
-      </div>
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="Conta"
+        title="Configurações"
+        description="Perfil, credenciais de fornecedores e chaves — com isolamento claro e feedback visual consistente."
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
         {/* API Keys */}
-        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Key className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              <h2 className="text-xl font-semibold text-black dark:text-white">
-                API Keys
-              </h2>
+        <Card padding="lg">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
+                <Key className="h-5 w-5" strokeWidth={1.75} />
+              </div>
+              <h2 className="text-title text-[var(--text-primary)]">API keys</h2>
             </div>
           </div>
 
           {/* Add Provider Buttons */}
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Adicionar API Key:
-            </p>
-            <div className="flex flex-wrap gap-2 mb-3">
+          <div className="mb-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)]/80 p-4">
+            <p className="mb-3 text-sm font-medium text-[var(--text-secondary)]">Adicionar provedor</p>
+            <div className="mb-3 flex flex-wrap gap-2">
               {PROVIDERS.map((provider: any) => {
                 const hasKey = settings.apiKeys.some((k) => k.provider === provider.id && !k.isCustom)
                 return (
                   <button
                     key={provider.id}
+                    type="button"
                     onClick={() => handleAddApiKey(provider.id)}
                     disabled={hasKey}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${dashBtnSecondary} px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-45`}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="h-4 w-4" strokeWidth={1.75} />
                     {provider.name}
                   </button>
                 )
@@ -223,36 +257,39 @@ export default function SettingsPage() {
             </div>
             {!showCustomProvider ? (
               <button
+                type="button"
                 onClick={() => setShowCustomProvider(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className={`${dashBtnPrimary} px-3 py-2 text-xs`}
               >
-                <Plus className="w-4 h-4" />
-                Adicionar Provedor Customizado
+                <Plus className="h-4 w-4" strokeWidth={1.75} />
+                Provedor customizado
               </button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   value={customProviderName}
                   onChange={(e) => setCustomProviderName(e.target.value)}
                   placeholder="Nome do provedor (ex: Custom API)"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white text-sm"
-                  onKeyPress={(e) => {
+                  className={`${dashInput} flex-1 text-sm`}
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddCustomApiKey()
                   }}
                 />
                 <button
+                  type="button"
                   onClick={handleAddCustomApiKey}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className={`${dashBtnPrimary} shrink-0 px-4 py-2 text-sm`}
                 >
                   Adicionar
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowCustomProvider(false)
                     setCustomProviderName('')
                   }}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm"
+                  className={`${dashBtnSecondary} shrink-0 px-4 py-2 text-sm`}
                 >
                   Cancelar
                 </button>
@@ -263,11 +300,11 @@ export default function SettingsPage() {
           {/* API Keys List */}
           <div className="space-y-4">
             {settings.apiKeys.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <Key className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>Nenhuma API key configurada</p>
-                <p className="text-sm mt-1">
-                  Adicione uma API key acima para começar
+              <div className="rounded-lg border border-dashed border-[var(--border-strong)] py-10 text-center text-[var(--text-secondary)]">
+                <Key className="mx-auto mb-3 h-10 w-10 opacity-40" strokeWidth={1.25} />
+                <p className="text-sm font-medium text-[var(--text-primary)]">Nenhuma API key</p>
+                <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                  Adicione um provedor acima para começar.
                 </p>
               </div>
             ) : (
@@ -276,28 +313,28 @@ export default function SettingsPage() {
                 return (
                   <div
                     key={apiKey.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-black"
+                    className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)]/50 p-4"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <input
                             type="text"
                             value={apiKey.name}
                             onChange={(e) =>
                               handleUpdateApiKey(apiKey.id, 'name', e.target.value)
                             }
-                            className="text-sm font-medium text-black dark:text-white bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                            className="min-w-0 flex-1 border-none bg-transparent p-0 text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-0"
                             placeholder="Nome da chave"
                           />
-                          <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400">
+                          <span className="rounded-md bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-subtle)]">
                             {apiKey.isCustom ? apiKey.provider : provider?.name}
                           </span>
-                          {apiKey.isCustom && (
-                            <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/20 rounded text-blue-600 dark:text-blue-400">
+                          {apiKey.isCustom ? (
+                            <span className="rounded-md bg-[var(--accent-muted)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">
                               Custom
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <div className="relative">
                           <input
@@ -307,7 +344,7 @@ export default function SettingsPage() {
                               handleUpdateApiKey(apiKey.id, 'key', e.target.value)
                             }
                             placeholder={provider?.placeholder || 'Cole sua API key aqui'}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white text-sm"
+                            className={`${dashInput} pr-11 font-mono text-sm`}
                           />
                           <button
                             type="button"
@@ -318,94 +355,105 @@ export default function SettingsPage() {
                                 !apiKey.isVisible
                               )
                             }
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-[var(--text-tertiary)] transition-premium hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)]"
+                            aria-label={apiKey.isVisible ? 'Ocultar chave' : 'Mostrar chave'}
                           >
-                            {apiKey.isVisible ? '👁️' : '👁️‍🗨️'}
+                            {apiKey.isVisible ? (
+                              <EyeOff className="h-4 w-4" strokeWidth={1.75} />
+                            ) : (
+                              <Eye className="h-4 w-4" strokeWidth={1.75} />
+                            )}
                           </button>
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleRemoveApiKey(apiKey.id)}
-                        className="ml-3 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        className="shrink-0 rounded-lg p-2 text-[var(--danger)] transition-premium hover:bg-[var(--danger-muted)]"
+                        aria-label="Remover chave"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                       </button>
                     </div>
-                    {provider && !apiKey.isCustom && (
-                      <div className="mt-2 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <HelpCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
+                    {provider && !apiKey.isCustom ? (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-[var(--text-tertiary)]">
+                        <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                        <div className="min-w-0 flex-1">
                           <p>{provider.description}</p>
                           <a
                             href={provider.helpUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-1 text-blue-600 dark:text-blue-400 hover:underline"
+                            className={`${dashLink} mt-1 inline-flex items-center gap-1 text-xs`}
                           >
-                            Como obter <ExternalLink className="w-3 h-3" />
+                            Documentação
+                            <ExternalLink className="h-3 w-3" strokeWidth={1.75} />
                           </a>
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )
               })
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Profile */}
-        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            <h2 className="text-xl font-semibold text-black dark:text-white">
-              Perfil
-            </h2>
+        <Card padding="lg">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
+              <User className="h-5 w-5" strokeWidth={1.75} />
+            </div>
+            <h2 className="text-title text-[var(--text-primary)]">Perfil</h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="settings-name" className={dashLabel}>
                 Nome
               </label>
               <input
+                id="settings-name"
                 type="text"
                 value={settings.name}
                 onChange={(e) =>
                   setSettings((prev) => ({ ...prev, name: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white"
+                className={dashInput}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="settings-email" className={dashLabel}>
                 Email
               </label>
               <input
+                id="settings-email"
                 type="email"
                 value={settings.email}
                 onChange={(e) =>
                   setSettings((prev) => ({ ...prev, email: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white"
+                className={`${dashInput} opacity-80`}
                 disabled
+                readOnly
               />
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Email não pode ser alterado
+              <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+                O email não pode ser alterado aqui.
               </p>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end border-t border-[var(--border-subtle)] pt-8">
         <button
+          type="button"
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50"
+          className={`${dashBtnPrimary} min-w-[200px] px-8 py-3 disabled:opacity-45`}
         >
-          <Save className="w-5 h-5" />
-          {isSaving ? 'Salvando...' : 'Salvar Configurações'}
+          <Save className="h-5 w-5" strokeWidth={1.75} />
+          {isSaving ? 'A guardar…' : 'Guardar alterações'}
         </button>
       </div>
     </div>

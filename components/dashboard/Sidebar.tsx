@@ -1,14 +1,13 @@
 /**
- * Dashboard Sidebar Component
- * 
- * Navigation sidebar with expandable submenus
+ * Sidebar — navegação compacta, estado colapsável, hierarquia clara.
  */
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
@@ -22,11 +21,6 @@ import {
   ChevronDown,
   ChevronRight,
   Library,
-  Brain,
-  User,
-  Play,
-  History,
-  FileText,
   Sparkles,
   Book,
   Plug,
@@ -34,12 +28,16 @@ import {
   Images,
   Activity,
   Clapperboard,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react'
+
+const STORAGE_KEY = 'hiviex-sidebar-collapsed'
 
 interface NavItem {
   name: string
   href: string
-  icon: any
+  icon: LucideIcon
   submenu?: NavItem[]
 }
 
@@ -64,44 +62,23 @@ const navigation: NavItem[] = [
     submenu: [
       { name: 'Meus Workflows', href: '/dashboard/workflows', icon: Workflow },
       { name: 'Criar Workflow', href: '/dashboard/workflows/new', icon: Sparkles },
-      { name: '─', href: '#', icon: GitBranch },
       { name: 'Flow Builder', href: '/dashboard/flows', icon: GitBranch },
       { name: 'Criar Flow', href: '/dashboard/flows/new', icon: Sparkles },
-      { name: 'Execuções', href: '/dashboard/flows/executions', icon: History },
+      { name: 'Execuções', href: '/dashboard/flows/executions', icon: GitBranch },
     ],
   },
-  {
-    name: 'Integrações',
-    href: '/dashboard/integrations',
-    icon: Plug,
-  },
-  {
-    name: 'Calendário',
-    href: '/dashboard/calendar',
-    icon: CalendarDays,
-  },
-  {
-    name: 'Mídia',
-    href: '/dashboard/media',
-    icon: Images,
-  },
-  {
-    name: 'Influenciadores AI',
-    href: '/dashboard/influencers',
-    icon: Sparkles,
-  },
-  {
-    name: 'Vídeo',
-    href: '/dashboard/video',
-    icon: Clapperboard,
-  },
+  { name: 'Integrações', href: '/dashboard/integrations', icon: Plug },
+  { name: 'Calendário', href: '/dashboard/calendar', icon: CalendarDays },
+  { name: 'Mídia', href: '/dashboard/media', icon: Images },
+  { name: 'Influenciadores AI', href: '/dashboard/influencers', icon: Sparkles },
+  { name: 'Vídeo', href: '/dashboard/video', icon: Clapperboard },
   {
     name: 'Analytics',
     href: '/dashboard/analytics',
     icon: BarChart3,
     submenu: [
       { name: 'Dashboard', href: '/dashboard/analytics', icon: BarChart3 },
-      { name: 'Relatórios', href: '/dashboard/analytics/reports', icon: FileText },
+      { name: 'Relatórios', href: '/dashboard/analytics/reports', icon: BarChart3 },
       { name: 'Métricas', href: '/dashboard/analytics/metrics', icon: BarChart3 },
     ],
   },
@@ -114,134 +91,165 @@ const navigation: NavItem[] = [
 export default function DashboardSidebar() {
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === '1') {
+        setCollapsed(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }
 
   const toggleMenu = (name: string) => {
-    const newExpanded = new Set(expandedMenus)
-    if (newExpanded.has(name)) {
-      newExpanded.delete(name)
-    } else {
-      newExpanded.add(name)
-    }
-    setExpandedMenus(newExpanded)
+    setExpandedMenus((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
 
   const isActive = (href: string) => {
-    // Exact match or starts with (but not for parent items when child is active)
     if (pathname === href) return true
-    // Only match if it's a sub-path, not if it's a parent of another active item
     if (pathname?.startsWith(href + '/')) {
-      // Check if this is the most specific match
-      const allHrefs = navigation.flatMap(item => [
-        item.href,
-        ...(item.submenu?.map(sub => sub.href) || [])
-      ]).filter(h => h !== href)
-      
-      // If another more specific href matches, this one shouldn't be active
-      const moreSpecificMatch = allHrefs.some(h => 
-        pathname?.startsWith(h + '/') || pathname === h
-      )
-      
-      return !moreSpecificMatch
+      const allHrefs = navigation
+        .flatMap((item) => [item.href, ...(item.submenu?.map((s) => s.href) || [])])
+        .filter((h) => h !== href)
+      const moreSpecific = allHrefs.some((h) => pathname?.startsWith(h + '/') || pathname === h)
+      return !moreSpecific
     }
     return false
   }
 
-  const isMenuExpanded = (name: string) => {
-    return expandedMenus.has(name)
-  }
+  const shouldAutoExpand = (item: NavItem) =>
+    !!item.submenu?.some((sub) => isActive(sub.href))
 
-  // Auto-expand menus if current path matches
-  const shouldAutoExpand = (item: NavItem) => {
-    if (!item.submenu) return false
-    return item.submenu.some((sub) => isActive(sub.href))
-  }
+  const widthCls = collapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width)]'
 
   return (
-    <aside className="w-64 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10 min-h-screen">
-      <nav className="px-4 pt-6 space-y-1">
-        {navigation.map((item) => {
-          const hasSubmenu = item.submenu && item.submenu.length > 0
-          const isItemActive = isActive(item.href) || shouldAutoExpand(item)
-          const isExpanded = isMenuExpanded(item.name) || shouldAutoExpand(item)
+    <aside
+      className={`sticky top-14 hidden h-[calc(100vh-3.5rem)] shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--surface-elevated)]/90 backdrop-blur-md transition-[width] duration-200 ease-out-expo sm:flex ${widthCls}`}
+    >
+      <div className={`flex items-center border-b border-[var(--border-subtle)] py-2 ${collapsed ? 'justify-center px-1' : 'justify-end px-2'}`}>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="rounded-lg p-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)]"
+          title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </div>
 
-          return (
-            <div key={item.name}>
-              {hasSubmenu ? (
-                <>
-                  <button
-                    onClick={() => toggleMenu(item.name)}
-                    className={`
-                      w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors
-                      ${
-                        isItemActive
-                          ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'
-                      }
-                    `}
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <ul className="space-y-0.5">
+          {navigation.map((item) => {
+            const hasSubmenu = !!(item.submenu && item.submenu.length > 0)
+            const itemActive = isActive(item.href) || shouldAutoExpand(item)
+            const expanded = expandedMenus.has(item.name) || shouldAutoExpand(item)
+
+            if (hasSubmenu && collapsed) {
+              return (
+                <li key={item.name}>
+                  <Link
+                    href={item.href}
+                    title={item.name}
+                    className={`flex items-center justify-center rounded-lg p-2.5 transition-premium ${
+                      itemActive
+                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]'
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="w-5 h-5" />
-                      <span className="font-medium">{item.name}</span>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
+                    <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                  </Link>
+                </li>
+              )
+            }
+
+            if (hasSubmenu) {
+              return (
+                <li key={item.name}>
+                  <button
+                    type="button"
+                    onClick={() => toggleMenu(item.name)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-premium ${
+                      itemActive
+                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <item.icon className="h-[18px] w-[18px] shrink-0 opacity-90" strokeWidth={1.75} />
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                    {expanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                     ) : (
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
                     )}
                   </button>
-                  {isExpanded && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {item.submenu?.map((subItem, index) => {
-                        // Check if this is a separator
-                        if (subItem.name === '─' || subItem.href === '#') {
-                          return (
-                            <div
-                              key={`separator-${index}`}
-                              className="my-2 border-t border-gray-200/50 dark:border-white/10"
-                            />
-                          )
-                        }
-                        const isSubActive = isActive(subItem.href)
+                  {expanded && (
+                    <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-[var(--border-subtle)] pl-2">
+                      {item.submenu!.map((sub) => {
+                        const subActive = isActive(sub.href)
                         return (
-                          <Link
-                            key={subItem.name}
-                            href={subItem.href}
-                            className={`
-                              flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-sm
-                              ${
-                                isSubActive
-                                  ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white border-l-2 border-black dark:border-white'
-                                  : 'text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
-                              }
-                            `}
-                          >
-                            <subItem.icon className="w-4 h-4" />
-                            <span>{subItem.name}</span>
-                          </Link>
+                          <li key={sub.href}>
+                            <Link
+                              href={sub.href}
+                              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-premium ${
+                                subActive
+                                  ? 'font-medium text-[var(--accent)]'
+                                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+                              }`}
+                            >
+                              <sub.icon className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                              <span className="truncate">{sub.name}</span>
+                            </Link>
+                          </li>
                         )
                       })}
-                    </div>
+                    </ul>
                   )}
-                </>
-              ) : (
+                </li>
+              )
+            }
+
+            return (
+              <li key={item.name}>
                 <Link
                   href={item.href}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-                    ${
-                      isItemActive
-                        ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white border-l-2 border-black dark:border-white'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'
-                    }
-                  `}
+                  title={collapsed ? item.name : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-premium ${
+                    collapsed ? 'justify-center px-2' : ''
+                  } ${
+                    itemActive
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]'
+                  }`}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
+                  <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+                  {!collapsed ? <span className="truncate">{item.name}</span> : null}
                 </Link>
-              )}
-            </div>
-          )
-        })}
+              </li>
+            )
+          })}
+        </ul>
       </nav>
     </aside>
   )

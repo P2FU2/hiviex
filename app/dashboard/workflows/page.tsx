@@ -1,6 +1,6 @@
 /**
  * Workflows Page
- * 
+ *
  * Gerenciar workflows (que contêm flows)
  */
 
@@ -8,20 +8,34 @@ import { getAuthSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
-import { Plus, Play, Pause, Archive, Settings, Trash2, GitBranch } from 'lucide-react'
+import { Plus, Settings, GitBranch } from 'lucide-react'
 import DeleteWorkflowButton from '@/components/DeleteWorkflowButton'
 import type { WorkflowStatus } from '@/lib/types/domain'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { Badge, type BadgeVariant } from '@/components/ui/Badge'
+import { dashBtnPrimary, dashBtnSecondary, dashInteractiveCard } from '@/lib/dashboard-ui'
 
 export const dynamic = 'force-dynamic'
+
+function workflowStatusVariant(status: WorkflowStatus): BadgeVariant {
+  switch (status) {
+    case 'ACTIVE':
+      return 'success'
+    case 'PAUSED':
+      return 'warning'
+    case 'ARCHIVED':
+    default:
+      return 'neutral'
+  }
+}
 
 export default async function WorkflowsPage() {
   const session = await getAuthSession()
 
-  // Get user's workspaces
   const tenantMemberships = await getUserTenants(session.user.id)
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
-  // Get all workflows
   const workflows = await prisma.workflow.findMany({
     where: {
       tenantId: { in: tenantIds },
@@ -52,97 +66,61 @@ export default async function WorkflowsPage() {
     orderBy: { updatedAt: 'desc' },
   })
 
-  const getStatusBadge = (status: WorkflowStatus) => {
-    const statusClasses = {
-      ACTIVE: 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-      PAUSED: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
-      ARCHIVED: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
-    }
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status]}`}
-      >
-        {status}
-      </span>
-    )
-  }
-
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-black dark:text-white">
-            Workflows
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Gerencie seus workflows e flows
-          </p>
-        </div>
-        <Link
-          href="/dashboard/workflows/new"
-          className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-        >
-          <Plus className="w-5 h-5" />
-          Novo Workflow
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="Orquestração"
+        title="Workflows"
+        description="Agrupe agentes e ligue-os a flows — um único sítio para estado e configuração."
+      >
+        <Link href="/dashboard/workflows/new" className={dashBtnPrimary}>
+          <Plus className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+          Novo workflow
         </Link>
-      </div>
+      </PageHeader>
 
-      {/* Workflows List */}
       {workflows.length === 0 ? (
-        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-12 text-center">
-          <GitBranch className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-            Nenhum workflow criado ainda
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Crie seu primeiro workflow para começar
-          </p>
-          <Link
-            href="/dashboard/workflows/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-          >
-            <Plus className="w-5 h-5" />
-            Criar Workflow
-          </Link>
-        </div>
+        <EmptyState
+          icon={GitBranch}
+          title="Nenhum workflow"
+          description="Defina um workflow antes de escalar automações entre equipas e workspaces."
+          action={
+            <Link href="/dashboard/workflows/new" className={dashBtnPrimary}>
+              <Plus className="h-5 w-5" strokeWidth={1.75} />
+              Criar workflow
+            </Link>
+          }
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {workflows.map((workflow: any) => (
-            <div
-              key={workflow.id}
-              className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6 hover:shadow-xl transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-black dark:text-white mb-1">
-                    {workflow.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    {workflow.description || 'Sem descrição'}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(workflow.status)}
-                    <span className="text-xs text-gray-500 dark:text-gray-500">
-                      {workflow._count.agents} agente(s)
-                    </span>
-                  </div>
+            <div key={workflow.id} className={`${dashInteractiveCard} flex flex-col`}>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{workflow.name}</h3>
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                  {workflow.description || 'Sem descrição'}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge variant={workflowStatusVariant(workflow.status)}>{workflow.status}</Badge>
+                  <span className="text-xs text-[var(--text-tertiary)]">
+                    {workflow._count.agents} agente(s)
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-4">
+              <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-4">
                 <Link
                   href={`/dashboard/workflows/${workflow.id}`}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity text-sm"
+                  className="inline-flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] transition-premium hover:opacity-92"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="h-4 w-4" strokeWidth={1.75} />
                   Configurar
                 </Link>
                 <Link
                   href={`/dashboard/flows?workflow=${workflow.id}`}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className={`${dashBtnSecondary} flex-1 min-w-[120px]`}
                 >
-                  <GitBranch className="w-4 h-4" />
+                  <GitBranch className="h-4 w-4" strokeWidth={1.75} />
                   Flows
                 </Link>
                 <DeleteWorkflowButton workflowId={workflow.id} workflowName={workflow.name} />

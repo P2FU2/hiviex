@@ -1,6 +1,6 @@
 /**
  * Dashboard Home Page
- * 
+ *
  * Overview page with statistics and quick actions
  */
 
@@ -8,19 +8,21 @@ import { getAuthSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserTenants } from '@/lib/utils/tenant'
 import Link from 'next/link'
+import type { LucideIcon } from 'lucide-react'
 import { Plus, Users, Bot, Workflow, TrendingUp } from 'lucide-react'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { Card } from '@/components/ui/Card'
+import { dashBtnPrimary, dashInteractiveCard, dashLink } from '@/lib/dashboard-ui'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
   const session = await getAuthSession()
-  // getAuthSession guarantees session.user.id exists
 
-  // Get user's workspaces
   const tenantMemberships = await getUserTenants(session.user.id)
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
-  // Get statistics
   const [workspacesCount, agentsCount, messagesCount, workflowsCount, flowsCount] =
     await Promise.all([
       prisma.tenant.count({
@@ -41,104 +43,79 @@ export default async function DashboardPage() {
     ])
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-black dark:text-white">
-            Dashboard
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Welcome back, {session.user?.name || session.user?.email || 'User'}
-          </p>
-        </div>
-        <Link
-          href="/dashboard/workspaces/new"
-          className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-        >
-          <Plus className="w-5 h-5" />
-          New Workspace
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="Visão geral"
+        title="Dashboard"
+        description={`Bem-vindo de volta, ${session.user?.name || session.user?.email || 'utilizador'}. Resumo da sua atividade nos workspaces.`}
+      >
+        <Link href="/dashboard/workspaces/new" className={dashBtnPrimary}>
+          <Plus className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+          Novo workspace
         </Link>
-      </div>
+      </PageHeader>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
         <StatCard
           title="Workspaces"
           value={workspacesCount}
           icon={Users}
           href="/dashboard/workspaces"
-          color="blue"
         />
         <StatCard
-          title="Agents"
+          title="Agentes"
           value={agentsCount}
           icon={Bot}
           href="/dashboard/agents"
-          color="green"
         />
         <StatCard
-          title="Messages"
+          title="Mensagens"
           value={messagesCount}
           icon={TrendingUp}
           href="/dashboard/chat"
-          color="purple"
         />
         <StatCard
-          title="Flows & workflows"
+          title="Flows e workflows"
           value={workflowsCount + flowsCount}
           icon={Workflow}
           href="/dashboard/flows"
-          color="orange"
         />
       </div>
 
-      {/* Recent Workspaces */}
-      <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-black dark:text-white">
-            Your Workspaces
-          </h2>
-          <Link
-            href="/dashboard/workspaces"
-            className="text-black dark:text-white hover:underline"
-          >
-            View all
+      <Card padding="lg">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-title text-[var(--text-primary)]">Os seus workspaces</h2>
+          <Link href="/dashboard/workspaces" className={dashLink}>
+            Ver todos
           </Link>
         </div>
         {tenantMemberships.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              You don&apos;t have any workspaces yet
-            </p>
-            <Link
-              href="/dashboard/workspaces/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-            >
-              <Plus className="w-5 h-5" />
-              Create Workspace
-            </Link>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="Ainda sem workspaces"
+            description="Crie o primeiro workspace para organizar agentes, fluxos e integrações."
+            action={
+              <Link href="/dashboard/workspaces/new" className={dashBtnPrimary}>
+                <Plus className="h-5 w-5" strokeWidth={1.75} />
+                Criar workspace
+              </Link>
+            }
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {tenantMemberships.slice(0, 6).map((membership: any) => (
               <Link
                 key={membership.tenant.id}
                 href={`/dashboard/workspaces/${membership.tenant.id}`}
-                className="p-4 border border-gray-200/50 dark:border-white/10 rounded-lg hover:border-black dark:hover:border-white transition-colors bg-white/50 dark:bg-black/50"
+                className={dashInteractiveCard}
               >
-                <h3 className="font-semibold text-black dark:text-white mb-1">
-                  {membership.tenant.name}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {membership.role}
-                </p>
+                <h3 className="font-medium text-[var(--text-primary)]">{membership.tenant.name}</h3>
+                <p className="mt-1 text-sm text-[var(--text-tertiary)]">{membership.role}</p>
               </Link>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -148,38 +125,25 @@ function StatCard({
   value,
   icon: Icon,
   href,
-  color,
 }: {
   title: string
   value: number
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   href: string
-  color: 'blue' | 'green' | 'purple' | 'orange'
 }) {
-  const colorClasses = {
-    blue: 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    green: 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-    purple: 'bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-    orange: 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
-  }
-
   return (
-    <Link
-      href={href}
-      className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6 hover:shadow-xl transition-all hover:scale-105"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
-          <p className="text-3xl font-bold text-black dark:text-white mt-2">
+    <Link href={href} className={`${dashInteractiveCard} block p-6`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">{title}</p>
+          <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
             {value}
           </p>
         </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
+          <Icon className="h-5 w-5" strokeWidth={1.75} />
         </div>
       </div>
     </Link>
   )
 }
-

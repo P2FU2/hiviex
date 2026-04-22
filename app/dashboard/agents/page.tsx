@@ -1,6 +1,6 @@
 /**
  * Agents List Page
- * 
+ *
  * Lists all agents across user's workspaces
  */
 
@@ -8,20 +8,41 @@ import { getAuthSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import Link from 'next/link'
-import { Plus, Bot, Edit, Trash2, MessageSquare, Settings } from 'lucide-react'
+import { Plus, Bot, Edit, MessageSquare, Settings } from 'lucide-react'
 import DeleteAgentButton from '@/components/DeleteAgentButton'
 import type { AgentStatus } from '@/lib/types/domain'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { Card } from '@/components/ui/Card'
+import { Badge, type BadgeVariant } from '@/components/ui/Badge'
+import {
+  dashBtnPrimary,
+  dashBtnSecondary,
+  dashBtnGhost,
+  dashInteractiveCard,
+  dashLink,
+} from '@/lib/dashboard-ui'
 
 export const dynamic = 'force-dynamic'
+
+function agentStatusVariant(status: AgentStatus): BadgeVariant {
+  switch (status) {
+    case 'ACTIVE':
+      return 'success'
+    case 'INACTIVE':
+      return 'neutral'
+    case 'DRAFT':
+    default:
+      return 'warning'
+  }
+}
 
 export default async function AgentsPage() {
   const session = await getAuthSession()
 
-  // Get user's workspaces
   const tenantMemberships = await getUserTenants(session.user.id)
   const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
-  // Get all agents from user's workspaces
   const agents = await prisma.agent.findMany({
     where: {
       tenantId: { in: tenantIds },
@@ -37,11 +58,8 @@ export default async function AgentsPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // Group agents by workspace
   const agentsByWorkspace = tenantMemberships.map((membership: any) => {
-    const workspaceAgents = agents.filter(
-      (agent) => agent.tenantId === membership.tenant.id
-    )
+    const workspaceAgents = agents.filter((agent) => agent.tenantId === membership.tenant.id)
     return {
       workspace: membership.tenant,
       agents: workspaceAgents,
@@ -49,149 +67,106 @@ export default async function AgentsPage() {
     }
   })
 
-  const getStatusBadge = (status: AgentStatus) => {
-    const statusClasses = {
-      ACTIVE: 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-      INACTIVE: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
-      DRAFT: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
-    }
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status]}`}
-      >
-        {status}
-      </span>
-    )
-  }
-
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-black dark:text-white">
-            Agents
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Gerencie seus agentes de IA em todos os workspaces
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/agents/library"
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-lg hover:opacity-80 transition-opacity"
-          >
-            <Bot className="w-5 h-5" />
-            Biblioteca
-          </Link>
-          <Link
-            href="/dashboard/agents/new"
-            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Agente
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="IA operacional"
+        title="Agentes"
+        description="Gerir agentes por workspace — modelo, estado e acesso rápido ao chat."
+      >
+        <Link href="/dashboard/agents/library" className={dashBtnSecondary}>
+          <Bot className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+          Biblioteca
+        </Link>
+        <Link href="/dashboard/agents/new" className={dashBtnPrimary}>
+          <Plus className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+          Novo agente
+        </Link>
+      </PageHeader>
 
-      {/* Agents by Workspace */}
       {agentsByWorkspace.length === 0 || agents.length === 0 ? (
-        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-12 text-center">
-          <Bot className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-            No agents yet
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Create your first AI agent to get started
-          </p>
-          <Link
-            href="/dashboard/agents/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity"
-          >
-            <Plus className="w-5 h-5" />
-            Create Agent
-          </Link>
-        </div>
+        <EmptyState
+          icon={Bot}
+          title="Ainda sem agentes"
+          description="Crie um agente alinhado à voz da marca ou importe um modelo da biblioteca."
+          action={
+            <Link href="/dashboard/agents/new" className={dashBtnPrimary}>
+              <Plus className="h-5 w-5" strokeWidth={1.75} />
+              Criar agente
+            </Link>
+          }
+        />
       ) : (
-        <div className="space-y-6">
-          {agentsByWorkspace.map(({ workspace, agents: workspaceAgents, role }) => {
+        <div className="space-y-8">
+          {agentsByWorkspace.map(({ workspace, agents: workspaceAgents }) => {
             if (workspaceAgents.length === 0) return null
 
             return (
-              <div
-                key={workspace.id}
-                className="bg-white/80 dark:bg-black/80 backdrop-blur-xl rounded-lg border border-gray-200/50 dark:border-white/10 shadow-lg p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
+              <Card key={workspace.id} padding="lg">
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-black dark:text-white">
-                      {workspace.name}
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {workspaceAgents.length} agent{workspaceAgents.length !== 1 ? 's' : ''}
+                    <h2 className="text-title text-[var(--text-primary)]">{workspace.name}</h2>
+                    <p className="mt-1 text-sm text-[var(--text-tertiary)]">
+                      {workspaceAgents.length}{' '}
+                      {workspaceAgents.length === 1 ? 'agente' : 'agentes'}
                     </p>
                   </div>
-                  <Link
-                    href={`/dashboard/workspaces/${workspace.id}`}
-                    className="text-sm text-black dark:text-white hover:underline"
-                  >
-                    View workspace
+                  <Link href={`/dashboard/workspaces/${workspace.id}`} className={dashLink}>
+                    Abrir workspace
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {workspaceAgents.map((agent: any) => (
-                    <div
-                      key={agent.id}
-                      className="p-4 border border-gray-200/50 dark:border-white/10 rounded-lg hover:border-black dark:hover:border-white transition-colors bg-white/50 dark:bg-black/50"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                            <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <div key={agent.id} className={dashInteractiveCard}>
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
+                            <Bot className="h-5 w-5" strokeWidth={1.75} />
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-black dark:text-white">
+                          <div className="min-w-0">
+                            <h3 className="truncate font-medium text-[var(--text-primary)]">
                               {agent.name}
                             </h3>
-                            {getStatusBadge(agent.status)}
+                            <div className="mt-1">
+                              <Badge variant={agentStatusVariant(agent.status)}>{agent.status}</Badge>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {agent.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                      {agent.description ? (
+                        <p className="mb-3 line-clamp-2 text-sm text-[var(--text-secondary)]">
                           {agent.description}
                         </p>
-                      )}
+                      ) : null}
 
-                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-3">
-                        <span>{agent.provider}</span>
-                        <span>•</span>
-                        <span>{agent.model}</span>
-                      </div>
+                      <p className="mb-4 text-xs text-[var(--text-tertiary)]">
+                        {agent.provider} · {agent.model}
+                      </p>
 
-                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200/50 dark:border-white/10">
+                      <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
                         <Link
                           href={`/dashboard/agents/${agent.id}`}
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg transition-colors text-black dark:text-white"
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-premium hover:border-[var(--border-strong)]"
                         >
-                          <MessageSquare className="w-4 h-4" />
+                          <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
                           Chat
                         </Link>
                         <Link
                           href={`/dashboard/agents/${agent.id}/edit`}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors"
-                          title="Edit"
+                          className={dashBtnGhost}
+                          title="Editar"
+                          aria-label={`Editar ${agent.name}`}
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="h-4 w-4" strokeWidth={1.75} />
                         </Link>
                         <DeleteAgentButton agentId={agent.id} agentName={agent.name} />
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>
@@ -199,4 +174,3 @@ export default async function AgentsPage() {
     </div>
   )
 }
-

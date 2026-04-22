@@ -22,9 +22,9 @@ export default async function DashboardLayout({
     <DashboardProviders>
       <div className="dashboard-app min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)]">
         <DashboardHeader />
-        <div className="flex">
+        <div className="flex flex-col sm:flex-row">
           <DashboardSidebar />
-          <main className="flex-1 p-6 sm:p-8 max-w-[1600px] w-full mx-auto">
+          <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 max-w-[1600px] w-full mx-auto">
             {children}
           </main>
         </div>
