@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Save, User, Palette, Video, Mic } from 'lucide-react'
 
@@ -29,11 +29,7 @@ export default function AvatarStudioPage() {
     voiceRhythm: '',
   })
 
-  useEffect(() => {
-    loadAvatar()
-  }, [agentId])
-
-  const loadAvatar = async () => {
+  const loadAvatar = useCallback(async () => {
     try {
       const response = await fetch(`/api/agents/${agentId}/avatar`)
       if (response.ok) {
@@ -59,7 +55,11 @@ export default function AvatarStudioPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [agentId])
+
+  useEffect(() => {
+    void loadAvatar()
+  }, [loadAvatar])
 
   const handleSave = async () => {
     setIsSaving(true)

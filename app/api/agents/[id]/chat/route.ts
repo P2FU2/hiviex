@@ -8,9 +8,11 @@ import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
 import { prisma } from '@/lib/db/prisma'
 import {
-  isWithinUsageLimit,
-  recordTenantUsage,
+  tryReserveMonthlyUsage,
+  releaseMonthlyUsage,
+  appendUsageAuditLog,
 } from '@/lib/billing/usage'
+import { EmbeddingQuotaExceededError } from '@/lib/embeddings/search'
 import { createLogger } from '@/lib/observability/logger'
 
 export const dynamic = 'force-dynamic'
@@ -35,11 +37,9 @@ export async function POST(
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // Get user's workspaces
     const tenantMemberships = await getUserTenants(session.user.id)
     const tenantIds = tenantMemberships.map((tm: any) => tm.tenantId)
 
-    // Get agent
     const agent = await prisma.agent.findFirst({
       where: {
         id: agentId,
@@ -51,11 +51,10 @@ export async function POST(
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
     }
 
-    // Get tenant for message
     const tenantId = agent.tenantId
 
-    const within = await isWithinUsageLimit(tenantId, 'llm_chat')
-    if (!within) {
+    const reserved = await tryReserveMonthlyUsage(tenantId, 1, 'llm_chat')
+    if (!reserved) {
       return NextResponse.json(
         {
           error: 'Limite mensal de utilização atingido para este workspace.',
@@ -65,7 +64,6 @@ export async function POST(
       )
     }
 
-    // Save user message
     await prisma.message.create({
       data: {
         tenantId,
@@ -75,7 +73,6 @@ export async function POST(
       },
     })
 
-    // Call LLM API
     let response: string
     try {
       const { LLMProvider } = await import('@/lib/llm/providers')
@@ -91,7 +88,7 @@ export async function POST(
         agent.provider || 'openai'
       )
       const apiKey = metaKey || workspaceKey || undefined
-      
+
       let systemPrompt =
         agent.personality || `Você é ${agent.name}. ${agent.description || ''}`
 
@@ -107,8 +104,10 @@ export async function POST(
           if (rag) {
             systemPrompt += `\n\nContexto relevante (base de conhecimento):\n${rag}`
           }
-        } catch {
-          /* RAG opcional */
+        } catch (ragErr) {
+          if (ragErr instanceof EmbeddingQuotaExceededError) {
+            log.warn('RAG skipped — quota diária de embeddings', { tenantId, agentId })
+          }
         }
       }
 
@@ -119,35 +118,39 @@ export async function POST(
         temperature: agent.temperature || 0.7,
         maxTokens: agent.maxTokens || 2000,
       })
-      
+
       response = llmResponse.content
 
       try {
-        await recordTenantUsage(tenantId, {
+        await appendUsageAuditLog(tenantId, {
           feature: 'llm_chat',
           tokens: llmResponse.metadata.tokensUsed,
         })
       } catch (usageErr) {
-        log.error('recordTenantUsage falhou após chat', usageErr, {
+        log.error('appendUsageAuditLog falhou após chat', usageErr, {
           tenantId,
           agentId,
         })
       }
     } catch (error) {
       log.error('LLM API error', error, { tenantId, agentId })
+      await releaseMonthlyUsage(tenantId, 1).catch(() => {})
       if (process.env.NODE_ENV === 'production') {
         return NextResponse.json(
           {
-            error: 'Falha ao gerar resposta. Verifique as chaves de API do provedor e tente novamente.',
+            error:
+              'Falha ao gerar resposta. Verifique as chaves de API do provedor e tente novamente.',
           },
           { status: 502 }
         )
       }
       response = `Olá! Sou ${agent.name}. (dev) Falha no LLM: ${error instanceof Error ? error.message : String(error)}`
-      void recordTenantUsage(tenantId, { feature: 'llm_chat' }).catch(() => {})
+      const again = await tryReserveMonthlyUsage(tenantId, 1, 'llm_chat')
+      if (again) {
+        void appendUsageAuditLog(tenantId, { feature: 'llm_chat' }).catch(() => {})
+      }
     }
 
-    // Save assistant message
     await prisma.message.create({
       data: {
         tenantId,
@@ -161,17 +164,15 @@ export async function POST(
       void import('@/lib/embeddings/search')
         .then(({ ingestEmbeddingDocument }) =>
           ingestEmbeddingDocument({
+            tenantId,
             content: `Q: ${String(message).slice(0, 6000)}\nA: ${response.slice(0, 6000)}`,
             metadata: {
-              tenantId,
               agentId,
               source: 'chat_turn',
             },
           })
         )
-        .catch(() => {
-          /* ingest best-effort */
-        })
+        .catch(() => {})
     }
 
     return NextResponse.json({ response })
@@ -189,4 +190,3 @@ export async function POST(
     )
   }
 }
-

@@ -122,6 +122,17 @@ Modify constants in `lib/constants.ts` under `SCENE_3D` section.
 ### Animation Timing
 Adjust animation durations in `lib/constants.ts` under `ANIMATION_DURATION`.
 
+## 📚 Documentação (SaaS, dashboard, ops)
+
+Toda a documentação técnica vive em **[docs/README.md](./docs/README.md)** (índice em português): setup, troubleshooting, auth, integrações sociais, workers e vídeo.
+
+Comandos úteis:
+
+```bash
+npm run ci       # typecheck + lint + test + build
+npm run worker   # processos em fila (Redis)
+```
+
 ## 📄 License
 
 This project is private and proprietary.

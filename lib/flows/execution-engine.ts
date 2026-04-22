@@ -306,6 +306,7 @@ export class FlowExecutionEngine {
    */
   async execute(input: Record<string, any> = {}): Promise<{
     success: boolean
+    error?: string
     output?: any
     logs: ExecutionLogEntry[]
     nodeResults: Map<string, NodeExecutionResult>
@@ -398,8 +399,17 @@ export class FlowExecutionEngine {
       errors: this.context.nodeErrors.size,
     })
 
+    let error: string | undefined
+    if (!success && this.context.nodeErrors.size > 0) {
+      const [nodeId, msg] = this.context.nodeErrors.entries().next().value!
+      error = msg ? `${nodeId}: ${msg}` : String(nodeId)
+    } else if (!success) {
+      error = 'Um ou mais nós não foram executados ou o fluxo ficou bloqueado.'
+    }
+
     return {
       success,
+      error,
       output: finalOutput,
       logs: this.context.executionLog,
       nodeResults,

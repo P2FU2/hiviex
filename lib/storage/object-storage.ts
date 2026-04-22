@@ -5,7 +5,12 @@
  * AWS_REGION (ou "auto" no R2), S3_ENDPOINT (R2), S3_PUBLIC_BASE_URL ou CDN_URL.
  */
 
-import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { randomUUID } from 'crypto'
 
@@ -107,6 +112,27 @@ export function buildTenantMediaKey(tenantId: string, fileName: string): string 
   return `tenants/${tenantId}/media/${id}-${seg}`
 }
 
+/** Upload direto (workers / servidor). */
+export async function putObjectBuffer(
+  s3Key: string,
+  body: Buffer,
+  contentType: string
+): Promise<void> {
+  const cfg = readObjectStorageConfig()
+  if (!cfg) {
+    throw new Error('Armazenamento de objetos não configurado (S3/R2).')
+  }
+  const client = createS3Client(cfg)
+  await client.send(
+    new PutObjectCommand({
+      Bucket: cfg.bucket,
+      Key: s3Key,
+      Body: body,
+      ContentType: contentType,
+    })
+  )
+}
+
 export async function presignPutUpload(
   s3Key: string,
   contentType: string,
@@ -124,6 +150,37 @@ export async function presignPutUpload(
   })
   const url = await getSignedUrl(client, cmd, { expiresIn: expiresSeconds })
   return { url, bucket: cfg.bucket }
+}
+
+/**
+ * Lê objeto até maxBytes (transcrição, thumbnails, etc.).
+ */
+export async function getObjectBufferLimited(
+  s3Key: string,
+  maxBytes: number
+): Promise<Buffer> {
+  const cfg = readObjectStorageConfig()
+  if (!cfg) {
+    throw new Error('Armazenamento de objetos não configurado (S3/R2).')
+  }
+  const client = createS3Client(cfg)
+  const out = await client.send(
+    new GetObjectCommand({ Bucket: cfg.bucket, Key: s3Key })
+  )
+  if (!out.Body) {
+    throw new Error('Objeto vazio no armazenamento.')
+  }
+
+  const chunks: Buffer[] = []
+  let total = 0
+  for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
+    total += chunk.length
+    if (total > maxBytes) {
+      throw new Error(`Objeto excede ${maxBytes} bytes`)
+    }
+    chunks.push(Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 export async function headObjectMeta(

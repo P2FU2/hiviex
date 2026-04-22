@@ -98,8 +98,14 @@ export class AgentProcessor {
           if (rag) {
             systemPrompt += `\n\nContexto relevante (base de conhecimento):\n${rag}`
           }
-        } catch {
-          /* RAG opcional */
+        } catch (e) {
+          if (
+            e &&
+            typeof e === 'object' &&
+            (e as Error).name === 'EmbeddingQuotaExceededError'
+          ) {
+            /* quota diária — continuar sem RAG */
+          }
         }
       }
 

@@ -4,8 +4,12 @@
 
 import { prisma } from '@/lib/db/prisma'
 import { FlowExecutionEngine } from '@/lib/flows/execution-engine'
-import { recordTenantUsage } from '@/lib/billing/usage'
+import {
+  appendUsageAuditLog,
+  releaseMonthlyUsage,
+} from '@/lib/billing/usage'
 import { createLogger } from '@/lib/observability/logger'
+import { createTenantNotification } from '@/lib/notifications/service'
 
 const log = createLogger('flow-run')
 
@@ -48,7 +52,7 @@ export async function runFlowExecutionJob(
 
   const locked = await prisma.flowExecution.updateMany({
     where: { id: executionId, status: 'PENDING' },
-    data: { status: 'RUNNING' },
+    data: { status: 'RUNNING', updatedAt: new Date() },
   })
 
   if (locked.count === 0) {
@@ -83,6 +87,10 @@ export async function runFlowExecutionJob(
 
     const result = await engine.execute(input)
 
+    const errorText = result.success
+      ? null
+      : result.error || 'Flow execution failed'
+
     await prisma.flowExecution.update({
       where: { id: executionId },
       data: {
@@ -90,7 +98,8 @@ export async function runFlowExecutionJob(
         completedAt: new Date(),
         output: result.output as object | undefined,
         logs: result.logs as object | undefined,
-        error: result.success ? null : 'Flow execution failed',
+        error: errorText,
+        usageReserved: false,
       },
     })
 
@@ -105,13 +114,36 @@ export async function runFlowExecutionJob(
 
     if (result.success) {
       try {
-        await recordTenantUsage(flow.tenantId, { feature: 'flow_execution' })
+        await appendUsageAuditLog(flow.tenantId, { feature: 'flow_execution' })
       } catch (usageErr) {
-        log.error('recordTenantUsage failed after successful flow', usageErr, {
+        log.error('appendUsageAuditLog failed after successful flow', usageErr, {
           executionId,
           tenantId: flow.tenantId,
         })
       }
+      void createTenantNotification({
+        tenantId: flow.tenantId,
+        type: 'flow_completed',
+        message: `Fluxo "${flow.name}" concluído com sucesso.`,
+        metadata: { flowId: flow.id, executionId },
+      }).catch(() => {})
+    } else {
+      if (execution.usageReserved) {
+        try {
+          await releaseMonthlyUsage(flow.tenantId, 1)
+        } catch (e) {
+          log.error('releaseMonthlyUsage after flow failure', e, {
+            executionId,
+            tenantId: flow.tenantId,
+          })
+        }
+      }
+      void createTenantNotification({
+        tenantId: flow.tenantId,
+        type: 'flow_failed',
+        message: `Fluxo "${flow.name}" falhou: ${errorText ?? 'erro desconhecido'}`,
+        metadata: { flowId: flow.id, executionId, error: errorText },
+      }).catch(() => {})
     }
 
     for (const [nodeId, nodeResult] of Array.from(result.nodeResults.entries())) {
@@ -149,14 +181,32 @@ export async function runFlowExecutionJob(
     } catch {
       /* Sentry opcional */
     }
+
+    if (execution.usageReserved) {
+      try {
+        await releaseMonthlyUsage(execution.flow.tenantId, 1)
+      } catch (e) {
+        log.error('releaseMonthlyUsage after exception', e, { executionId })
+      }
+    }
+
     await prisma.flowExecution.update({
       where: { id: executionId },
       data: {
         status: 'FAILED',
         completedAt: new Date(),
         error: errorMessage,
+        usageReserved: false,
       },
     })
+
+    void createTenantNotification({
+      tenantId: execution.flow.tenantId,
+      type: 'flow_failed',
+      message: `Fluxo "${execution.flow.name}" falhou: ${errorMessage}`,
+      metadata: { flowId: execution.flow.id, executionId },
+    }).catch(() => {})
+
     throw error
   }
 }

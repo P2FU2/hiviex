@@ -9,7 +9,8 @@ import { getBullMQConnection } from '@/lib/redis/bullmq-connection'
 import { runFlowExecutionJob } from '@/lib/flows/run-flow-execution'
 import type { Prisma } from '@prisma/client'
 import {
-  isWithinUsageLimit,
+  tryReserveMonthlyUsage,
+  releaseMonthlyUsage,
   type UsageFeature,
 } from '@/lib/billing/usage'
 import { createLogger } from '@/lib/observability/logger'
@@ -32,7 +33,7 @@ export type StartFlowExecutionResult =
 
 /**
  * @param allowDraft — se true, permite DRAFT e ACTIVE (painel “Executar”). Se false, só ACTIVE (webhook).
- * @param checkUsageLimit — se true, bloqueia com 429 quando quota mensal esgotada (pré-checagem).
+ * @param checkUsageLimit — reserva quota mensal de forma atómica (tryReserve) antes de criar execução.
  */
 export async function startFlowExecution(
   flow: FlowGraph,
@@ -45,22 +46,7 @@ export async function startFlowExecution(
   }
 ): Promise<StartFlowExecutionResult> {
   const checkUsage = options.checkUsageLimit !== false
-  if (checkUsage) {
-    const ok = await isWithinUsageLimit(
-      flow.tenantId,
-      options.usageFeature ?? 'flow_execution'
-    )
-    if (!ok) {
-      return {
-        ok: false,
-        status: 429,
-        body: {
-          error: 'Limite mensal de utilização atingido para este workspace.',
-          code: 'USAGE_LIMIT_EXCEEDED',
-        },
-      }
-    }
-  }
+  let reservedUsage = false
 
   const canRun =
     flow.status === 'ACTIVE' ||
@@ -89,6 +75,25 @@ export async function startFlowExecution(
     }
   }
 
+  if (checkUsage) {
+    const ok = await tryReserveMonthlyUsage(
+      flow.tenantId,
+      1,
+      options.usageFeature ?? 'flow_execution'
+    )
+    if (!ok) {
+      return {
+        ok: false,
+        status: 429,
+        body: {
+          error: 'Limite mensal de utilização atingido para este workspace.',
+          code: 'USAGE_LIMIT_EXCEEDED',
+        },
+      }
+    }
+    reservedUsage = true
+  }
+
   const baseLog = {
     timestamp: new Date(),
     nodeId: '',
@@ -97,23 +102,32 @@ export async function startFlowExecution(
     message: options.logMessage || 'Flow execution started',
   }
 
-  const execution = await prisma.flowExecution.create({
-    data: {
-      flowId: flow.id,
-      status: 'PENDING',
-      input: input as Prisma.InputJsonValue,
-      logs: [
-        baseLog,
-        ...validation.warnings.map((warning) => ({
-          timestamp: new Date(),
-          nodeId: '',
-          nodeLabel: 'System',
-          level: 'warning' as const,
-          message: warning,
-        })),
-      ],
-    },
-  })
+  let execution: Awaited<ReturnType<typeof prisma.flowExecution.create>>
+  try {
+    execution = await prisma.flowExecution.create({
+      data: {
+        flowId: flow.id,
+        status: 'PENDING',
+        input: input as Prisma.InputJsonValue,
+        usageReserved: reservedUsage,
+        logs: [
+          baseLog,
+          ...validation.warnings.map((warning) => ({
+            timestamp: new Date(),
+            nodeId: '',
+            nodeLabel: 'System',
+            level: 'warning' as const,
+            message: warning,
+          })),
+        ],
+      },
+    })
+  } catch (e) {
+    if (reservedUsage) {
+      await releaseMonthlyUsage(flow.tenantId, 1).catch(() => {})
+    }
+    throw e
+  }
 
   const redisConfigured = !!(
     process.env.REDIS_URL?.trim() || process.env.REDIS_HOST?.trim()
@@ -121,12 +135,16 @@ export async function startFlowExecution(
 
   if (!redisConfigured) {
     if (process.env.NODE_ENV === 'production') {
+      if (reservedUsage) {
+        await releaseMonthlyUsage(flow.tenantId, 1).catch(() => {})
+      }
       await prisma.flowExecution.update({
         where: { id: execution.id },
         data: {
           status: 'FAILED',
           error:
             'Redis não configurado — defina REDIS_URL ou REDIS_HOST para executar fluxos.',
+          usageReserved: false,
         },
       })
       return {
@@ -159,11 +177,15 @@ export async function startFlowExecution(
       executionId: execution.id,
       tenantId: flow.tenantId,
     })
+    if (reservedUsage) {
+      await releaseMonthlyUsage(flow.tenantId, 1).catch(() => {})
+    }
     await prisma.flowExecution.update({
       where: { id: execution.id },
       data: {
         status: 'FAILED',
         error: 'Fila de execução indisponível. Verifique Redis e o worker.',
+        usageReserved: false,
       },
     })
     return {

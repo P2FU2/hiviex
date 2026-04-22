@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Key, Plus, Trash2, Loader2, X } from 'lucide-react'
 
 interface ApiKey {
@@ -32,13 +32,7 @@ export default function WorkspaceApiKeysSection({
   const [showAddModal, setShowAddModal] = useState(false)
   const [newKey, setNewKey] = useState({ name: '', provider: 'openai', key: '' })
 
-  useEffect(() => {
-    if (userRole === 'OWNER' || userRole === 'ADMIN') {
-      loadApiKeys()
-    }
-  }, [workspaceId, userRole])
-
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     try {
       const response = await fetch(`/api/workspaces/${workspaceId}/api-keys`)
       if (response.ok) {
@@ -48,7 +42,13 @@ export default function WorkspaceApiKeysSection({
     } catch (error) {
       console.error('Error loading API keys:', error)
     }
-  }
+  }, [workspaceId])
+
+  useEffect(() => {
+    if (userRole === 'OWNER' || userRole === 'ADMIN') {
+      void loadApiKeys()
+    }
+  }, [userRole, loadApiKeys])
 
   const handleAddKey = async (e: React.FormEvent) => {
     e.preventDefault()

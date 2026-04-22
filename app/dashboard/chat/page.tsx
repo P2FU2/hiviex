@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, Bot, User, ArrowLeft, Search, MoreVertical } from 'lucide-react'
 import Image from 'next/image'
 
@@ -40,17 +40,6 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    loadAgents()
-    loadConversations()
-  }, [])
-
-  useEffect(() => {
-    if (selectedConversation) {
-      loadMessages(selectedConversation)
-    }
-  }, [selectedConversation])
-
-  useEffect(() => {
     scrollToBottom()
   }, [messages])
 
@@ -58,47 +47,46 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const loadAgents = async () => {
-    try {
-      const response = await fetch('/api/agents')
-      if (response.ok) {
-        const data = await response.json()
-        setAgents(data.agents || [])
-      }
-    } catch (error) {
-      console.error('Error loading agents:', error)
-    }
-  }
-
-  const loadConversations = async () => {
-    if (agents.length === 0) return
-    
-    // Load conversations from agents
-    const convs: Conversation[] = agents.map((agent) => ({
-      id: agent.id,
-      agentId: agent.id,
-      agentName: agent.name,
-      agentAvatar: agent.avatarUrl,
-      lastMessage: 'Comece uma conversa...',
-      lastMessageTime: new Date(),
-      unreadCount: 0,
-    }))
-    setConversations(convs)
-    if (convs.length > 0 && !selectedConversation) {
-      setSelectedConversation(convs[0].id)
-    }
-  }
-
   useEffect(() => {
-    if (agents.length > 0) {
-      loadConversations()
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch('/api/agents')
+        if (!response.ok || cancelled) return
+        const data = await response.json()
+        const list = data.agents || []
+        if (cancelled) return
+        setAgents(list)
+        const convs: Conversation[] = list.map((agent: any) => ({
+          id: agent.id,
+          agentId: agent.id,
+          agentName: agent.name,
+          agentAvatar: agent.avatarUrl,
+          lastMessage: 'Comece uma conversa...',
+          lastMessageTime: new Date(),
+          unreadCount: 0,
+        }))
+        setConversations(convs)
+        if (convs.length > 0) {
+          setSelectedConversation((prev) => prev ?? convs[0].id)
+        }
+      } catch (error) {
+        console.error('Error loading agents:', error)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  }, [agents])
+  }, [])
 
-  const loadMessages = async (agentId: string) => {
+  const loadMessages = useCallback(async (_agentId: string) => {
     // In production, load from API
     setMessages([])
-  }
+  }, [])
+
+  useEffect(() => {
+    if (selectedConversation) void loadMessages(selectedConversation)
+  }, [selectedConversation, loadMessages])
 
   const handleSend = async () => {
     if (!input.trim() || !selectedConversation || isLoading) return

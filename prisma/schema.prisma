@@ -42,6 +42,10 @@ model Tenant {
   socialMetrics SocialMetrics[]
   webhookSubscriptions WebhookSubscription[]
   workspaceApiKeys WorkspaceApiKey[]
+  notifications Notification[]
+  aiInfluencers   AIInfluencer[]
+  videoProjects   VideoProject[]
+  generationJobs  GenerationJob[]
 
   @@index([slug])
   @@map("tenants")
@@ -84,6 +88,22 @@ model TenantUser {
   @@map("tenant_users")
 }
 
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  type      String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, read])
+  @@index([tenantId, createdAt])
+  @@map("notifications")
+}
+
 // ============================================
 // AUTHENTICATION
 // ============================================
@@ -99,9 +119,11 @@ model User {
   updatedAt           DateTime  @updatedAt
 
   // Relations
-  accounts      Account[]
-  sessions      Session[]
-  tenantMembers TenantUser[]
+  accounts              Account[]
+  sessions              Session[]
+  tenantMembers         TenantUser[]
+  aiInfluencersCreated  AIInfluencer[]
+  videoProjectsCreated  VideoProject[]
 
   @@map("users")
 }
@@ -402,8 +424,11 @@ model FlowExecution {
   output      Json?
   logs        Json?           // Logs de execução
   error       String?         @db.Text
-  
+  // true se tryReserveMonthlyUsage correu em startFlowExecution — libertar em falha/recovery
+  usageReserved Boolean       @default(false)
+
   createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // Relations
   flow        Flow            @relation(fields: [flowId], references: [id], onDelete: Cascade)
@@ -412,6 +437,7 @@ model FlowExecution {
   @@index([flowId])
   @@index([status])
   @@index([startedAt])
+  @@index([status, updatedAt])
   @@map("flow_executions")
 }
 
@@ -566,6 +592,9 @@ model Subscription {
   // Usage limits
   monthlyRequests       Int                @default(0)
   monthlyRequestsLimit  Int                @default(100) // FREE plan default
+  // Contador diário UTC para embeddings; reset quando embeddingsDailyUtc < início do dia UTC
+  embeddingsDailyCount  Int                @default(0)
+  embeddingsDailyUtc    DateTime?
   currentPeriodStart    DateTime?
   currentPeriodEnd      DateTime?
   
@@ -774,6 +803,9 @@ model MediaAsset {
   // Relations
   tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   scheduledPosts  ScheduledPost[]
+  influencerRefs AIInfluencerReferenceAsset[]
+  videoSources    VideoSource[]
+  clipPreviews    VideoClipCandidate[] @relation("ClipPreviewMedia")
 
   @@index([tenantId])
   @@index([s3Key])
@@ -897,5 +929,286 @@ model WebhookSubscription {
   @@index([platform])
   @@index([active])
   @@map("webhook_subscriptions")
+}
+
+// ============================================
+// AI INFLUENCERS & VIDEO FACTORY
+// ============================================
+
+enum InfluencerStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum InfluencerVersionStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  LOCKED
+}
+
+enum ReferenceAssetRole {
+  FACE_REF
+  BODY_REF
+  STYLE_REF
+  VOICE_SAMPLE
+  OTHER
+}
+
+enum GenerationJobType {
+  INFLUENCER_IDENTITY_PACK
+  INFLUENCER_PREVIEW
+  VIDEO_INGEST
+  VIDEO_TRANSCRIBE
+  VIDEO_CLIP_ANALYSIS
+  VIDEO_CLIP_RENDER
+  CAPTION_RENDER
+  VIDEO_FINAL_MUX
+}
+
+enum GenerationJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum VideoProjectStatus {
+  DRAFT
+  ANALYZING
+  READY_FOR_EDIT
+  RENDERING
+  COMPLETED
+  FAILED
+}
+
+enum VideoSourceType {
+  URL
+  UPLOAD
+  AUDIO
+}
+
+enum VideoClipCandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RENDERED
+}
+
+model AIInfluencer {
+  id                String           @id @default(cuid())
+  tenantId          String
+  createdByUserId   String
+  name              String
+  slug              String?
+  status            InfluencerStatus @default(DRAFT)
+  currentVersionId  String?          @unique
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy       User                 @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  currentVersion  AIInfluencerVersion? @relation("InfluencerCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions        AIInfluencerVersion[] @relation("InfluencerVersionsList")
+  videoProjects   VideoProject[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([createdByUserId])
+  @@map("ai_influencers")
+}
+
+model AIInfluencerVersion {
+  id                   String                  @id @default(cuid())
+  influencerId         String
+  version              Int
+  status               InfluencerVersionStatus @default(DRAFT)
+  identityPack         Json?
+  promptBlueprint      String?                 @db.Text
+  negativePromptBlueprint String?              @db.Text
+  brandPersona         Json?
+  platformGuidelines   Json?
+  notes                String?                 @db.Text
+  approvedAt           DateTime?
+  lockedAt             DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  influencer       AIInfluencer                 @relation("InfluencerVersionsList", fields: [influencerId], references: [id], onDelete: Cascade)
+  currentFor       AIInfluencer?                @relation("InfluencerCurrentVersion")
+  voiceProfile     AIInfluencerVoiceProfile?
+  referenceAssets  AIInfluencerReferenceAsset[]
+  videoProjects    VideoProject[]
+
+  @@unique([influencerId, version])
+  @@index([influencerId])
+  @@index([status])
+  @@map("ai_influencer_versions")
+}
+
+model AIInfluencerVoiceProfile {
+  id            String   @id @default(cuid())
+  versionId     String   @unique
+  voiceBlueprint Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  version AIInfluencerVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_influencer_voice_profiles")
+}
+
+model AIInfluencerReferenceAsset {
+  id           String             @id @default(cuid())
+  versionId    String
+  mediaAssetId String
+  role         ReferenceAssetRole @default(OTHER)
+  approved     Boolean            @default(false)
+  metadata     Json?
+  createdAt    DateTime           @default(now())
+
+  version    AIInfluencerVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset          @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@index([versionId])
+  @@index([mediaAssetId])
+  @@map("ai_influencer_reference_assets")
+}
+
+model VideoProject {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  createdByUserId     String
+  title               String
+  status              VideoProjectStatus @default(DRAFT)
+  influencerId        String?
+  influencerVersionId String?
+  config              Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy          User                 @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  influencer         AIInfluencer?        @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+  influencerVersion  AIInfluencerVersion? @relation(fields: [influencerVersionId], references: [id], onDelete: SetNull)
+  sources            VideoSource[]
+  clipCandidates     VideoClipCandidate[]
+  editSession        VideoEditSession?
+  captionTracks      CaptionTrack[]
+  generationJobs     GenerationJob[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([createdByUserId])
+  @@map("video_projects")
+}
+
+model VideoSource {
+  id              String          @id @default(cuid())
+  projectId       String
+  type            VideoSourceType
+  sourceUrl       String?         @db.Text
+  mediaAssetId    String?
+  durationSeconds Int?
+  transcript      Json?
+  metadata        Json?
+  ingestStatus    String          @default("PENDING")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  project    VideoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset?  @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("video_sources")
+}
+
+model VideoClipCandidate {
+  id                  String                   @id @default(cuid())
+  projectId           String
+  rank                Int
+  startMs             Int
+  endMs               Int
+  durationTarget      Int
+  score               Float?
+  reasoning           Json?
+  previewMediaAssetId String?
+  status              VideoClipCandidateStatus @default(PENDING)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  project       VideoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  previewMedia  MediaAsset?  @relation("ClipPreviewMedia", fields: [previewMediaAssetId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([projectId, rank])
+  @@map("video_clip_candidates")
+}
+
+model VideoEditSession {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  state     Json
+  updatedAt DateTime @updatedAt
+
+  project VideoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("video_edit_sessions")
+}
+
+model CaptionTrack {
+  id          String   @id @default(cuid())
+  projectId   String
+  locale      String   @default("pt-BR")
+  stylePreset String?
+  segments    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project VideoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("caption_tracks")
+}
+
+model MusicTrackReference {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  title       String
+  moodTags    String[] @default([])
+  licenseType String
+  assetUrl    String?  @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("music_track_references")
+}
+
+model GenerationJob {
+  id               String              @id @default(cuid())
+  tenantId         String
+  projectId        String?
+  type             GenerationJobType
+  status           GenerationJobStatus @default(PENDING)
+  idempotencyKey   String?             @unique
+  bullJobId        String?
+  reservedUnits    Int                 @default(0)
+  inputRef         Json?
+  outputRef        Json?
+  error            String?             @db.Text
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project VideoProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([projectId])
+  @@map("generation_jobs")
 }
 

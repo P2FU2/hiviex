@@ -176,12 +176,15 @@ Antes de reportar um erro, verifique:
    npm run test:db
    ```
 
-3. **Verifique documentação:**
-   - `docs/SETUP_GUIDE.md` - Guia completo de setup
-   - `docs/UPSTASH_SETUP.md` - Configuração do Redis
-   - `docs/VERIFICATION_CHECKLIST.md` - Checklist de verificação
+3. **Documentação:** [docs/README.md](./README.md) (índice), [SETUP_GUIDE.md](./SETUP_GUIDE.md), [UPSTASH_SETUP.md](./UPSTASH_SETUP.md)
 
 ---
 
-**Última atualização:** Guia de troubleshooting completo
+## Migrações Prisma e shadow database
+
+Em CI ou `migrate dev`, se falhar por shadow DB inacessível, use URL externa ao Postgres ou `prisma migrate deploy` em produção sem shadow. Ver mensagem de erro do Prisma para `directUrl` se aplicável.
+
+---
+
+**Última atualização:** consolidado com documentação da raiz do repositório
 

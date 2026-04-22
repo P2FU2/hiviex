@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { SchedulePostForm } from '@/components/dashboard/SchedulePostForm'
 import {
   CalendarDays,
   ChevronLeft,
@@ -13,6 +15,7 @@ import {
   Youtube,
   Facebook,
   Music2,
+  GitBranch,
 } from 'lucide-react'
 import {
   addMonths,
@@ -44,6 +47,17 @@ type ScheduledPostRow = {
   account: { platform: string; username: string | null } | null
 }
 
+type FlowExecutionRow = {
+  id: string
+  flowId: string
+  flowName: string
+  status: string
+  executionStatus: string
+  error: string | null
+  startedAt: string
+  completedAt: string | null
+}
+
 const platformIcon = (p: string) => {
   switch (p) {
     case 'INSTAGRAM':
@@ -56,6 +70,23 @@ const platformIcon = (p: string) => {
       return Music2
     default:
       return CalendarDays
+  }
+}
+
+const flowExecutionStatusStyle = (s: string) => {
+  switch (s) {
+    case 'completed':
+      return 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+    case 'failed':
+      return 'text-red-600 dark:text-red-400 bg-red-500/10'
+    case 'running':
+      return 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
+    case 'queued':
+      return 'text-violet-600 dark:text-violet-400 bg-violet-500/10'
+    case 'cancelled':
+      return 'text-gray-500 bg-gray-500/10'
+    default:
+      return 'text-gray-600 dark:text-gray-400 bg-gray-500/10'
   }
 }
 
@@ -77,11 +108,16 @@ const statusStyle = (s: string) => {
   }
 }
 
-export default function EditorialCalendarPage() {
+function EditorialCalendarInner() {
+  const searchParams = useSearchParams()
+  const urlTenantId = searchParams.get('tenantId') || ''
+  const urlMediaAssetId = searchParams.get('mediaAssetId') || ''
+
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [workspaceId, setWorkspaceId] = useState('')
   const [cursor, setCursor] = useState(() => new Date())
   const [posts, setPosts] = useState<ScheduledPostRow[]>([])
+  const [flowExecutions, setFlowExecutions] = useState<FlowExecutionRow[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
 
@@ -93,10 +129,15 @@ export default function EditorialCalendarPage() {
           (m: { tenant: Tenant }) => m.tenant
         ) as Tenant[]
         setTenants(list)
-        if (list[0]?.id) setWorkspaceId(list[0].id)
+        const fromUrl = urlTenantId && list.some((t) => t.id === urlTenantId)
+        if (fromUrl) {
+          setWorkspaceId(urlTenantId)
+        } else if (list[0]?.id) {
+          setWorkspaceId(list[0].id)
+        }
       })
       .catch(() => {})
-  }, [])
+  }, [urlTenantId])
 
   const range = useMemo(() => {
     const monthStart = startOfMonth(cursor)
@@ -112,14 +153,23 @@ export default function EditorialCalendarPage() {
     try {
       const from = range.monthStart.toISOString()
       const to = range.monthEnd.toISOString()
-      const r = await fetch(
-        `/api/integrations/posts?tenantId=${encodeURIComponent(workspaceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-      )
-      const data = await r.json()
-      if (Array.isArray(data.posts)) setPosts(data.posts)
+      const [postsRes, flowsRes] = await Promise.all([
+        fetch(
+          `/api/integrations/posts?tenantId=${encodeURIComponent(workspaceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+        ),
+        fetch(
+          `/api/flows/executions?tenantId=${encodeURIComponent(workspaceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+        ),
+      ])
+      const postsData = await postsRes.json()
+      const flowsData = await flowsRes.json()
+      if (Array.isArray(postsData.posts)) setPosts(postsData.posts)
       else setPosts([])
+      if (Array.isArray(flowsData.executions)) setFlowExecutions(flowsData.executions)
+      else setFlowExecutions([])
     } catch {
       setPosts([])
+      setFlowExecutions([])
     } finally {
       setLoading(false)
     }
@@ -140,6 +190,17 @@ export default function EditorialCalendarPage() {
     return m
   }, [posts])
 
+  const executionsByDay = useMemo(() => {
+    const m = new Map<string, FlowExecutionRow[]>()
+    for (const ex of flowExecutions) {
+      const key = format(new Date(ex.startedAt), 'yyyy-MM-dd')
+      const arr = m.get(key) || []
+      arr.push(ex)
+      m.set(key, arr)
+    }
+    return m
+  }, [flowExecutions])
+
   const days = useMemo(
     () =>
       eachDayOfInterval({
@@ -151,6 +212,10 @@ export default function EditorialCalendarPage() {
 
   const selectedPosts = selectedDay
     ? postsByDay.get(format(selectedDay, 'yyyy-MM-dd')) || []
+    : []
+
+  const selectedFlowExecutions = selectedDay
+    ? executionsByDay.get(format(selectedDay, 'yyyy-MM-dd')) || []
     : []
 
   return (
@@ -237,6 +302,7 @@ export default function EditorialCalendarPage() {
             {days.map((day) => {
               const key = format(day, 'yyyy-MM-dd')
               const dayPosts = postsByDay.get(key) || []
+              const dayFlows = executionsByDay.get(key) || []
               const inMonth = isSameMonth(day, cursor)
               const isSel = selectedDay && isSameDay(day, selectedDay)
               return (
@@ -280,6 +346,15 @@ export default function EditorialCalendarPage() {
                         +{dayPosts.length - 3}
                       </span>
                     ) : null}
+                    {dayFlows.length > 0 ? (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400"
+                        title={`${dayFlows.length} execução(ões) de fluxo`}
+                      >
+                        <GitBranch className="w-3 h-3" />
+                        {dayFlows.length}
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               )
@@ -302,58 +377,104 @@ export default function EditorialCalendarPage() {
             </h2>
             {!selectedDay ? (
               <p className="text-sm text-gray-500 mt-3">
-                Clique num dia na grelha para ver os posts agendados.
+                Clique num dia na grelha para ver publicações e execuções de fluxos.
               </p>
-            ) : selectedPosts.length === 0 ? (
+            ) : selectedPosts.length === 0 && selectedFlowExecutions.length === 0 ? (
               <p className="text-sm text-gray-500 mt-3">
-                Nenhuma publicação neste dia.
+                Nada neste dia (sem posts nem fluxos).
               </p>
             ) : (
-              <ul className="mt-3 space-y-3">
-                {selectedPosts.map((p) => {
-                  const Icon = platformIcon(p.platform)
-                  return (
-                    <li
-                      key={p.id}
-                      className="rounded-xl border border-gray-200/60 dark:border-white/10 p-3 text-sm"
-                    >
-                      <div className="flex items-start gap-2">
-                        <Icon className="w-4 h-4 mt-0.5 shrink-0 text-gray-600 dark:text-gray-300" />
-                        <div className="min-w-0 flex-1">
+              <div className="mt-3 space-y-6">
+                {selectedPosts.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Publicações
+                    </h3>
+                    <ul className="mt-2 space-y-3">
+                      {selectedPosts.map((p) => {
+                        const Icon = platformIcon(p.platform)
+                        return (
+                          <li
+                            key={p.id}
+                            className="rounded-xl border border-gray-200/60 dark:border-white/10 p-3 text-sm"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Icon className="w-4 h-4 mt-0.5 shrink-0 text-gray-600 dark:text-gray-300" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-black dark:text-white truncate">
+                                  {p.title || p.caption?.slice(0, 80) || 'Sem título'}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {format(new Date(p.scheduledAt), 'HH:mm')} ·{' '}
+                                  {p.account?.username || p.platform}
+                                </p>
+                                <span
+                                  className={`inline-block mt-2 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${statusStyle(p.status)}`}
+                                >
+                                  {p.status}
+                                </span>
+                                {p.platformPostUrl ? (
+                                  <a
+                                    href={p.platformPostUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400"
+                                  >
+                                    Ver na rede
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                ) : null}
+                                {p.errorMessage ? (
+                                  <p className="text-xs text-red-600 dark:text-red-400 mt-2 break-words">
+                                    {p.errorMessage}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedFlowExecutions.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1">
+                      <GitBranch className="w-3.5 h-3.5" />
+                      Fluxos
+                    </h3>
+                    <ul className="mt-2 space-y-3">
+                      {selectedFlowExecutions.map((ex) => (
+                        <li
+                          key={ex.id}
+                          className="rounded-xl border border-gray-200/60 dark:border-white/10 p-3 text-sm"
+                        >
                           <p className="font-medium text-black dark:text-white truncate">
-                            {p.title || p.caption?.slice(0, 80) || 'Sem título'}
+                            {ex.flowName}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {format(new Date(p.scheduledAt), 'HH:mm')} ·{' '}
-                            {p.account?.username || p.platform}
+                            {format(new Date(ex.startedAt), 'HH:mm:ss')}
+                            {ex.completedAt
+                              ? ` – ${format(new Date(ex.completedAt), 'HH:mm:ss')}`
+                              : ''}
                           </p>
                           <span
-                            className={`inline-block mt-2 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${statusStyle(p.status)}`}
+                            className={`inline-block mt-2 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${flowExecutionStatusStyle(ex.executionStatus)}`}
                           >
-                            {p.status}
+                            {ex.executionStatus}
                           </span>
-                          {p.platformPostUrl ? (
-                            <a
-                              href={p.platformPostUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400"
-                            >
-                              Ver na rede
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          ) : null}
-                          {p.errorMessage ? (
+                          {ex.error ? (
                             <p className="text-xs text-red-600 dark:text-red-400 mt-2 break-words">
-                              {p.errorMessage}
+                              {ex.error}
                             </p>
                           ) : null}
-                        </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             )}
           </div>
 
@@ -364,8 +485,32 @@ export default function EditorialCalendarPage() {
             </code>
             .
           </div>
+
+          {workspaceId ? (
+            <SchedulePostForm
+              tenantId={workspaceId}
+              suggestedMediaAssetIds={
+                urlMediaAssetId ? [urlMediaAssetId] : []
+              }
+            />
+          ) : null}
         </aside>
       </div>
     </div>
+  )
+}
+
+export default function EditorialCalendarPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="dashboard-app min-h-screen p-6 md:p-10 max-w-6xl mx-auto animate-pulse space-y-4">
+          <div className="h-10 w-64 rounded-lg bg-gray-200 dark:bg-white/10" />
+          <div className="h-96 rounded-2xl bg-gray-200 dark:bg-white/10" />
+        </div>
+      }
+    >
+      <EditorialCalendarInner />
+    </Suspense>
   )
 }

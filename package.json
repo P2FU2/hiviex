@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "ci": "npm run typecheck && npm run lint && npm run build",
+    "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -17,7 +17,8 @@
     "test:connections": "npx tsx scripts/test-connections.ts",
     "test:db": "npx tsx scripts/check-db.ts",
     "test:db:connection": "npx tsx scripts/test-db-connection.ts",
-    "worker": "npx tsx scripts/start-worker.ts"
+    "worker": "npx tsx scripts/start-worker.ts",
+    "test": "tsx --test tests/ssrf.test.ts tests/llm-json-parse.test.ts tests/video-captions.test.ts tests/planned-social.test.ts"
   },
   "engines": {
     "node": "20.x"

@@ -9,10 +9,12 @@ import {
   Instagram,
   Facebook,
   Music2,
+  Mail,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
   Building2,
+  Sparkles,
 } from 'lucide-react'
 
 type Tenant = { id: string; name: string; slug: string }
@@ -44,17 +46,34 @@ const PLATFORMS: {
   {
     id: 'FACEBOOK',
     name: 'Facebook',
-    description: 'Páginas e publicação — em breve.',
+    description:
+      'Páginas (Graph API): vídeo por URL pública, fotos ou post de texto. Mesmo app Meta que o Instagram.',
     icon: Facebook,
     color: 'from-blue-600 to-indigo-600',
-    available: false,
+    available: true,
   },
   {
     id: 'TIKTOK',
     name: 'TikTok',
-    description: 'Integração Content Posting — roadmap.',
+    description: 'Integração Content Posting — roadmap (worker falha de forma controlada).',
     icon: Music2,
     color: 'from-zinc-800 to-zinc-600',
+    available: false,
+  },
+  {
+    id: 'KWAII',
+    name: 'Kwai',
+    description: 'Roadmap — mesmo app trata a plataforma sem erros na factory.',
+    icon: Sparkles,
+    color: 'from-orange-600 to-amber-600',
+    available: false,
+  },
+  {
+    id: 'GMAIL',
+    name: 'Gmail',
+    description: 'E-mail / anexos — roadmap.',
+    icon: Mail,
+    color: 'from-slate-600 to-slate-500',
     available: false,
   },
 ]
@@ -63,6 +82,8 @@ function IntegrationsInner() {
   const searchParams = useSearchParams()
   const success = searchParams.get('success')
   const error = searchParams.get('error')
+  const notice = searchParams.get('notice')
+  const plannedPlatform = searchParams.get('platform')
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [workspaceId, setWorkspaceId] = useState<string>('')
 
@@ -101,8 +122,27 @@ function IntegrationsInner() {
         </div>
       )
     }
+    if (notice === 'planned' && plannedPlatform) {
+      const label: Record<string, string> = {
+        FACEBOOK: 'Facebook',
+        TIKTOK: 'TikTok',
+        KWAII: 'Kwai',
+        GMAIL: 'Gmail',
+      }
+      const name = label[plannedPlatform] ?? plannedPlatform
+      return (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>
+            A integração <strong>{name}</strong> ainda não está disponível para OAuth nesta versão.
+            Utiliza <strong>YouTube</strong> ou <strong>Instagram</strong> para publicar; as restantes
+            plataformas estão planeadas sem bloquear workers.
+          </span>
+        </div>
+      )
+    }
     return null
-  }, [success, error])
+  }, [success, error, notice, plannedPlatform])
 
   return (
     <div className="space-y-8">

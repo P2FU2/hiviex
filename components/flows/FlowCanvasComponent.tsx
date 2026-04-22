@@ -140,6 +140,8 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
+    // Handlers (guardar/apagar/duplicar) estão definidos abaixo; incluí-los aqui recriaria o listener em excesso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, copiedNode, nodes])
 
   const loadAgents = async () => {

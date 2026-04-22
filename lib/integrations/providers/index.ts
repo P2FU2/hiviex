@@ -6,10 +6,12 @@
 
 import { YouTubeProvider } from './youtube-provider'
 import { InstagramProvider } from './instagram-provider'
+import { FacebookProvider } from './facebook-provider'
+import { PlannedSocialProvider } from './planned-social-provider'
 import type { BaseSocialProvider } from '../base-provider'
 import type { SocialPlatform } from '@/lib/types/domain'
 
-export { YouTubeProvider, InstagramProvider }
+export { YouTubeProvider, InstagramProvider, FacebookProvider, PlannedSocialProvider }
 export type { BaseSocialProvider }
 
 /**
@@ -22,17 +24,13 @@ export function createProvider(platform: SocialPlatform): BaseSocialProvider {
     case 'INSTAGRAM':
       return new InstagramProvider()
     case 'FACEBOOK':
-      // TODO: Implementar FacebookProvider
-      throw new Error('Facebook provider not yet implemented')
+      return new FacebookProvider()
     case 'TIKTOK':
-      // TODO: Implementar TikTokProvider
-      throw new Error('TikTok provider not yet implemented')
+      return new PlannedSocialProvider('TIKTOK', 'TikTok')
     case 'KWAII':
-      // TODO: Implementar KwaiiProvider
-      throw new Error('Kwaii provider not yet implemented')
+      return new PlannedSocialProvider('KWAII', 'Kwai')
     case 'GMAIL':
-      // TODO: Implementar GmailProvider
-      throw new Error('Gmail provider not yet implemented')
+      return new PlannedSocialProvider('GMAIL', 'Gmail')
     default:
       throw new Error(`Unknown platform: ${platform}`)
   }

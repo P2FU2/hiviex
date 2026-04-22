@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Save, Brain, Target, Heart, Sparkles, Tag } from 'lucide-react'
 
@@ -28,11 +28,7 @@ export default function PersonaDesignerPage() {
     behaviorParams: {} as Record<string, any>,
   })
 
-  useEffect(() => {
-    loadPersona()
-  }, [agentId])
-
-  const loadPersona = async () => {
+  const loadPersona = useCallback(async () => {
     try {
       const response = await fetch(`/api/agents/${agentId}/persona`)
       if (response.ok) {
@@ -56,7 +52,11 @@ export default function PersonaDesignerPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [agentId])
+
+  useEffect(() => {
+    void loadPersona()
+  }, [loadPersona])
 
   const handleSave = async () => {
     setIsSaving(true)

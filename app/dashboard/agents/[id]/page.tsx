@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -31,11 +31,7 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    loadAgent()
-  }, [agentId])
-
-  const loadAgent = async () => {
+  const loadAgent = useCallback(async () => {
     try {
       const response = await fetch(`/api/agents/${agentId}`)
       if (response.ok) {
@@ -47,7 +43,11 @@ export default function AgentDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [agentId])
+
+  useEffect(() => {
+    void loadAgent()
+  }, [loadAgent])
 
   if (isLoading) {
     return (

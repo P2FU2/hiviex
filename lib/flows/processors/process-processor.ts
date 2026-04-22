@@ -7,6 +7,7 @@
 import { FlowContext, NodeExecutionResult, ExecutionLogEntry } from '../execution-engine'
 import { safeEvaluateConditionString } from '@/lib/flows/safe-condition'
 import { prisma } from '@/lib/db/prisma'
+import { isBlockedOutboundUrl } from '@/lib/security/ssrf'
 
 interface FlowNode {
   id: string
@@ -371,6 +372,17 @@ export class ProcessProcessor {
       return { success: false, error: 'webhookUrl em falta' }
     }
 
+    if (isBlockedOutboundUrl(url)) {
+      logs.push({
+        timestamp: new Date(),
+        nodeId: '',
+        nodeLabel: '',
+        level: 'error',
+        message: 'webhook: URL bloqueada (SSRF / allowlist)',
+      })
+      return { success: false, error: 'url_blocked_ssrf' }
+    }
+
     const method = (config.webhookMethod as string) || 'POST'
     const timeoutMs = Math.min(
       Math.max(Number(config.timeoutMs) || 30_000, 1000),
@@ -445,35 +457,6 @@ export class ProcessProcessor {
       )
     }
     return out
-  }
-
-  /** Bloqueia destinos óbvios de SSRF (rede interna / metadata cloud). */
-  private static isBlockedHttpUrl(urlStr: string): boolean {
-    try {
-      const u = new URL(urlStr)
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') return true
-      const host = u.hostname.toLowerCase()
-      if (
-        host === 'localhost' ||
-        host === '0.0.0.0' ||
-        host.endsWith('.localhost')
-      ) {
-        return true
-      }
-      if (host.startsWith('127.')) return true
-      if (host.startsWith('10.')) return true
-      if (host.startsWith('192.168.')) return true
-      if (host.startsWith('172.')) {
-        const parts = host.split('.')
-        const second = Number(parts[1])
-        if (second >= 16 && second <= 31) return true
-      }
-      if (host.startsWith('169.254.')) return true
-      if (host === '[::1]' || host === '::1') return true
-      return false
-    } catch {
-      return true
-    }
   }
 
   private static async sendEmail(
@@ -618,7 +601,7 @@ export class ProcessProcessor {
     const urlTemplate = (c.url as string) || ''
     const url = this.interpolate(urlTemplate, data)
 
-    if (!url || this.isBlockedHttpUrl(url)) {
+    if (!url || isBlockedOutboundUrl(url)) {
       logs.push({
         timestamp: new Date(),
         nodeId: '',

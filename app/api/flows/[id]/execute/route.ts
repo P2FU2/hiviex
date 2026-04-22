@@ -11,6 +11,25 @@ import { startFlowExecution } from '@/lib/flows/start-flow-execution'
 
 export const dynamic = 'force-dynamic'
 
+function mapUiStatus(
+  s: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+): 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' {
+  switch (s) {
+    case 'PENDING':
+      return 'queued'
+    case 'RUNNING':
+      return 'running'
+    case 'COMPLETED':
+      return 'completed'
+    case 'FAILED':
+      return 'failed'
+    case 'CANCELLED':
+      return 'cancelled'
+    default:
+      return 'queued'
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
@@ -57,7 +76,11 @@ export async function POST(
     if (!started.ok) {
       return NextResponse.json(started.body, { status: started.status })
     }
-    return NextResponse.json(started.execution)
+    const ex = started.execution
+    return NextResponse.json({
+      ...ex,
+      executionStatus: mapUiStatus(ex.status),
+    })
   } catch (error) {
     console.error('Error executing flow:', error)
     return NextResponse.json(

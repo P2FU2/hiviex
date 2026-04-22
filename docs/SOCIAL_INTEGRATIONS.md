@@ -66,22 +66,13 @@
 - **Escopos**: `instagram_basic`, `instagram_content_publish`
 - **Features**: Feed, Reels, agendamento, métricas
 
-### 🚧 Facebook
-- **Status**: TODO
-- **API**: Facebook Graph API
-- **Features**: Posts em Páginas, agendamento
+### ✅ Facebook (Páginas)
+- **API**: Graph API — vídeo (`file_url` público), foto (`url`) ou post de texto
+- **OAuth**: mesmo app Meta (`FACEBOOK_APP_ID` / `SECRET`) que o Instagram
+- **Nota**: OAuth associa a **primeira** página devolvida por `/me/accounts`
 
-### 🚧 TikTok
-- **Status**: TODO
-- **Requisito**: Business Account + App aprovado
-- **API**: TikTok Content Posting API
-
-### 🚧 Kwai
-- **Status**: TODO (Partner Program)
-
-### 🚧 Gmail
-- **Status**: TODO
-- **Features**: Envio de e-mails, rascunhos
+### ⏳ TikTok / Kwai / Gmail
+- **Status**: `PlannedSocialProvider` — sem crash na factory; publicação devolve erro controlado até integração real
 
 ## Configuração
 
@@ -96,10 +87,9 @@ YOUTUBE_CLIENT_SECRET=
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 
-# Redis (BullMQ)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
+# Redis (BullMQ) — preferir URL (Upstash: rediss://...)
+REDIS_URL=
+# ou REDIS_HOST + REDIS_PORT + REDIS_PASSWORD (dev local)
 
 # Webhooks
 WEBHOOK_VERIFY_TOKEN=your_secret_token
@@ -118,65 +108,54 @@ pm2 start scripts/start-worker.ts --name publishing-worker
 
 ## Segurança
 
-### Tokens OAuth
+Tokens OAuth são persistidos **cifrados** (`lib/utils/encryption`, `ENCRYPTION_KEY`). Tokens de página (Instagram/Facebook) ficam em `metadata.pageAccessTokenEnc`.
 
-⚠️ **IMPORTANTE**: Tokens devem ser criptografados antes de salvar no banco.
+---
 
-Implementar:
-- Criptografia com AES-256-GCM
-- Chave mestra no KMS (AWS/GCP) ou variável de ambiente
-- Rotação de chaves
+## Uso (API e dashboard)
 
-### Exemplo de Criptografia
+### Ligar conta
 
-```typescript
-import crypto from 'crypto'
+1. UI: `/dashboard/integrations` → **Ligar conta** (YouTube, Instagram, Facebook quando disponível).
+2. Ou redirecionar: `GET /api/integrations/oauth/{PLATFORM}/init?tenantId={tenantId}`
 
-const ALGORITHM = 'aes-256-gcm'
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
+Callback: `GET /api/integrations/oauth/{PLATFORM}?code=&state=`
 
-function encrypt(text: string): { encrypted: string; iv: string; tag: string } {
-  const iv = crypto.randomBytes(16)
-  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv)
-  
-  let encrypted = cipher.update(text, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  
-  const tag = cipher.getAuthTag()
-  
-  return {
-    encrypted,
-    iv: iv.toString('hex'),
-    tag: tag.toString('hex'),
-  }
-}
+### Listar contas ligadas
 
-function decrypt(encrypted: string, iv: string, tag: string): string {
-  const decipher = crypto.createDecipheriv(
-    ALGORITHM,
-    KEY,
-    Buffer.from(iv, 'hex')
-  )
-  decipher.setAuthTag(Buffer.from(tag, 'hex'))
-  
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-  
-  return decrypted
+`GET /api/integrations/social-accounts?tenantId=`
+
+### Agendar publicação
+
+`POST /api/integrations/posts/schedule` com JSON:
+
+```json
+{
+  "tenantId": "...",
+  "socialAccountId": "...",
+  "platform": "YOUTUBE",
+  "contentType": "video",
+  "title": "Opcional",
+  "caption": "Texto",
+  "hashtags": [],
+  "mentions": [],
+  "scheduledAt": "2026-04-21T15:00:00.000Z",
+  "mediaAssetIds": ["cuid-do-MediaAsset"],
+  "config": {}
 }
 ```
 
-## Próximos Passos
+UI: formulário em `/dashboard/calendar` e no detalhe do projeto de vídeo (`SchedulePostForm`). Mídia deve existir na biblioteca (`/api/media`, upload S3 + `MediaAsset`).
 
-1. ✅ Schema do banco criado
-2. ✅ Base provider interface
-3. ✅ YouTube provider (parcial)
-4. ✅ Instagram provider (parcial)
-5. ✅ Queue e Worker
-6. 🚧 Criptografia de tokens
-7. 🚧 Upload de mídia para S3
-8. 🚧 Processamento de vídeo (FFmpeg)
-9. 🚧 Webhooks handlers
-10. 🚧 Métricas/Insights jobs
-11. 🚧 Frontend de agendamento
+### Workers
+
+```bash
+npm run worker
+```
+
+Inclui filas de publicação, vídeo (ingest, transcribe, clip, legendas, mux final), influenciadores e fluxos. Requer `REDIS_URL` compatível com BullMQ.
+
+### Listar posts no período
+
+`GET /api/integrations/posts?tenantId=&from=&to=` (usado pelo calendário editorial).
 

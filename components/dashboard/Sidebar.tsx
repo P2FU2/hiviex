@@ -33,6 +33,7 @@ import {
   CalendarDays,
   Images,
   Activity,
+  Clapperboard,
 } from 'lucide-react'
 
 interface NavItem {
@@ -83,6 +84,16 @@ const navigation: NavItem[] = [
     name: 'Mídia',
     href: '/dashboard/media',
     icon: Images,
+  },
+  {
+    name: 'Influenciadores AI',
+    href: '/dashboard/influencers',
+    icon: Sparkles,
+  },
+  {
+    name: 'Vídeo',
+    href: '/dashboard/video',
+    icon: Clapperboard,
   },
   {
     name: 'Analytics',

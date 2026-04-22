@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Bell, Save, Loader2 } from 'lucide-react'
 
 interface NotificationsSectionProps {
@@ -21,11 +21,7 @@ export default function NotificationsSection({ workspaceId }: NotificationsSecti
     notifyOnAgentErrors: false,
   })
 
-  useEffect(() => {
-    loadNotifications()
-  }, [workspaceId])
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const response = await fetch(`/api/workspaces/${workspaceId}/notifications`)
       if (response.ok) {
@@ -35,7 +31,11 @@ export default function NotificationsSection({ workspaceId }: NotificationsSecti
     } catch (error) {
       console.error('Error loading notifications:', error)
     }
-  }
+  }, [workspaceId])
+
+  useEffect(() => {
+    void loadNotifications()
+  }, [loadNotifications])
 
   const handleSave = async () => {
     setIsSaving(true)

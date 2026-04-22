@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Shield, Save, Loader2 } from 'lucide-react'
 
 interface PermissionsSectionProps {
@@ -21,11 +21,7 @@ export default function PermissionsSection({ workspaceId }: PermissionsSectionPr
     approvalRequiredForNewMembers: false,
   })
 
-  useEffect(() => {
-    loadPermissions()
-  }, [workspaceId])
-
-  const loadPermissions = async () => {
+  const loadPermissions = useCallback(async () => {
     try {
       const response = await fetch(`/api/workspaces/${workspaceId}/permissions`)
       if (response.ok) {
@@ -35,7 +31,11 @@ export default function PermissionsSection({ workspaceId }: PermissionsSectionPr
     } catch (error) {
       console.error('Error loading permissions:', error)
     }
-  }
+  }, [workspaceId])
+
+  useEffect(() => {
+    void loadPermissions()
+  }, [loadPermissions])
 
   const handleSave = async () => {
     setIsSaving(true)

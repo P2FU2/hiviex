@@ -12,6 +12,7 @@ import { decrypt, encrypt } from '@/lib/utils/encryption'
 import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
 import { resolveAssetPublicUrl } from '@/lib/storage/object-storage'
 import { createLogger } from '@/lib/observability/logger'
+import { createTenantNotification } from '@/lib/notifications/service'
 
 const log = createLogger('publishing-worker')
 
@@ -107,10 +108,16 @@ export class PublishingWorker {
         : undefined
 
       const pageTokEnc =
-        platform === 'INSTAGRAM' && account.metadata && typeof account.metadata === 'object'
+        (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
+        account.metadata &&
+        typeof account.metadata === 'object'
           ? (account.metadata as Record<string, unknown>).pageAccessTokenEnc
           : undefined
-      if (platform === 'INSTAGRAM' && typeof pageTokEnc === 'string' && pageTokEnc.length > 0) {
+      if (
+        (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
+        typeof pageTokEnc === 'string' &&
+        pageTokEnc.length > 0
+      ) {
         const pageTok = decrypt(pageTokEnc)
         if (pageTok) {
           accessTokenPlain = pageTok
@@ -208,6 +215,12 @@ export class PublishingWorker {
         platform,
         durationMs: Date.now() - t0,
       })
+      void createTenantNotification({
+        tenantId,
+        type: 'publish_success',
+        message: `Publicação ${platform} concluída.`,
+        metadata: { scheduledPostId, platform, postId: result.postId },
+      }).catch(() => {})
       return result
     } catch (error: any) {
       log.error('publish failed', error, {
@@ -243,6 +256,13 @@ export class PublishingWorker {
           errorStack: error.stack,
         },
       })
+
+      void createTenantNotification({
+        tenantId,
+        type: 'publish_failed',
+        message: `Falha na publicação ${platform}: ${error.message}`,
+        metadata: { scheduledPostId, platform },
+      }).catch(() => {})
 
       throw error
     }
