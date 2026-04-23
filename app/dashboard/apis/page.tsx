@@ -15,7 +15,12 @@ import {
   ExternalLink,
   Shield,
   Server,
+  FileText,
+  Image as ImageIcon,
+  Music,
+  Video,
 } from 'lucide-react'
+import { FREE_TIER_MODEL_REFERENCE } from '@/lib/llm/free-tier-models'
 import { dashBtnSecondary, dashLink } from '@/lib/dashboard-ui'
 import type { TenantRole } from '@/lib/types/domain'
 
@@ -45,6 +50,13 @@ const PROVIDERS = [
 function canManageKeys(role: TenantRole): boolean {
   return role === 'OWNER' || role === 'ADMIN'
 }
+
+const KIND_ICONS = {
+  text: FileText,
+  image: ImageIcon,
+  audio: Music,
+  video: Video,
+} as const
 
 export default async function ApisHubPage() {
   const session = await getAuthSession()
@@ -139,6 +151,62 @@ export default async function ApisHubPage() {
             </li>
           </ul>
         </Card>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-title flex items-center gap-2 text-[var(--text-primary)]">
+          <FileText className="h-5 w-5 text-[var(--accent)]" strokeWidth={1.75} />
+          Modelos com tier free, low-cost ou open-source
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Sugestões para testes e orçamento reduzido. O chat integrado do Hiviex (OpenAI, Anthropic,
+          Cohere) requer a chave correspondente em{' '}
+          <Link href="/dashboard/settings" className={dashLink}>
+            Definições
+          </Link>
+          ; as restantes entradas são referência geral.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {FREE_TIER_MODEL_REFERENCE.map((cat) => {
+            const KindIcon = KIND_ICONS[cat.kind]
+            return (
+              <Card key={cat.kind} padding="lg" className="border-[var(--border-subtle)]">
+                <div className="mb-3 flex items-center gap-2">
+                  <KindIcon
+                    className="h-4 w-4 text-[var(--accent)]"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                  <h3 className="font-semibold text-[var(--text-primary)]">{cat.title}</h3>
+                </div>
+                <p className="mb-3 text-xs leading-relaxed text-[var(--text-tertiary)]">
+                  {cat.blurb}
+                </p>
+                <ul className="space-y-2.5 text-sm">
+                  {cat.items.map((it) => (
+                    <li key={it.name} className="border-t border-[var(--border-subtle)] pt-2.5 first:border-t-0 first:pt-0">
+                      <p className="font-medium text-[var(--text-primary)]">{it.name}</p>
+                      <p className="mt-0.5 text-xs text-[var(--text-secondary)] leading-relaxed">
+                        {it.notes}
+                      </p>
+                      {it.href ? (
+                        <a
+                          href={it.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`${dashLink} mt-1 inline-flex items-center gap-0.5 text-xs`}
+                        >
+                          Site / docs
+                          <ExternalLink className="h-3 w-3 opacity-70" />
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )
+          })}
+        </div>
       </div>
 
       <div>

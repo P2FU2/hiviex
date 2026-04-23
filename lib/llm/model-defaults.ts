@@ -11,6 +11,16 @@ export const LLM_DEFAULTS = {
   maxOutputTokens: 4096,
 }
 
+/**
+ * Modelos de texto com bom custo/benefício (referência; validar no fornecedor).
+ * Não altera o default do runtime — use no campo «model» do agente.
+ */
+export const LLM_BUDGET_MODELS = {
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-3-5-haiku-20241022',
+  cohere: 'command-r-08-2024',
+} as const
+
 export function resolveLlmModel(provider: string, configured?: string | null): string {
   const p = (provider || 'openai').toLowerCase().trim()
   const fallback =
