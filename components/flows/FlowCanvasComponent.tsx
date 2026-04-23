@@ -17,10 +17,10 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   Panel,
-  NodeMouseHandler,
+  MarkerType,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Bot, Settings, Play, Save, Plus, Trash2, X, GitBranch, History, Layout, Instagram, FileText, Eye, ChevronDown, Webhook } from 'lucide-react'
+import { Bot, Settings, Play, Save, ArrowLeft, Layout, Instagram, FileText, Eye, ChevronDown, Webhook } from 'lucide-react'
 import AgentNode from '@/components/flows/AgentNode'
 import ProcessNode from '@/components/flows/ProcessNode'
 import PanelNode from '@/components/flows/PanelNode'
@@ -64,7 +64,6 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
   const [showConfigPanel, setShowConfigPanel] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ node: Node | null; position: { x: number; y: number } } | null>(null)
   const [copiedNode, setCopiedNode] = useState<Node | null>(null)
-  const [isPanOnDrag, setIsPanOnDrag] = useState(false)
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [isMenuCollapsed, setIsMenuCollapsed] = useState(false)
@@ -99,66 +98,39 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowId])
 
-  // Keyboard shortcuts
+  // Atalhos: Cmd/Ctrl+S guardar, Cmd+D duplicar, Delete apagar, Cmd+C/V
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Space for pan mode
-      if (e.code === 'Space' && !e.repeat) {
-        setIsPanOnDrag(true)
-        document.body.style.cursor = 'grab'
-      }
-
-      // Ctrl/Cmd combinations
       if (e.ctrlKey || e.metaKey) {
-        // Copy
         if (e.key === 'c' && selectedNode) {
           e.preventDefault()
           setCopiedNode(selectedNode)
         }
-        // Paste
         if (e.key === 'v' && copiedNode) {
           e.preventDefault()
           handlePasteNode()
         }
-        // Duplicate
         if (e.key === 'd' && selectedNode) {
           e.preventDefault()
           handleDuplicateNode()
         }
-        // Select all
         if (e.key === 'a') {
           e.preventDefault()
           setSelectedNodes(new Set(nodes.map((n) => n.id)))
         }
-        // Save
         if (e.key === 's') {
           e.preventDefault()
-          handleSave()
+          void handleSave()
         }
       }
-
-      // Delete
       if (e.key === 'Delete' && selectedNode) {
         e.preventDefault()
         handleDeleteNode()
       }
     }
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsPanOnDrag(false)
-        document.body.style.cursor = 'default'
-      }
-    }
-
     window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-    // Handlers (guardar/apagar/duplicar) estão definidos abaixo; incluí-los aqui recriaria o listener em excesso.
+    return () => window.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, copiedNode, nodes])
 
@@ -242,12 +214,15 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       // Convert database connections to ReactFlow edges
       const flowEdges: Edge[] = data.connections.map((conn: any) => ({
         id: `e${conn.sourceNodeId}-${conn.targetNodeId}`,
+        type: 'smoothstep',
         source: conn.sourceNodeId,
         target: conn.targetNodeId,
         sourceHandle: conn.config?.sourceHandle,
         targetHandle: conn.config?.targetHandle,
         label: conn.condition || undefined,
         animated: true,
+        style: { strokeWidth: 2, stroke: 'var(--flow-edge, #8b5cf6)' },
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--flow-edge, #8b5cf6)' },
         data: {
           condition: conn.condition,
           connectionType: conn.config?.connectionType || 'default',
@@ -266,7 +241,18 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds: Edge[]) => addEdge(params, eds))
+      setEdges((eds: Edge[]) =>
+        addEdge(
+          {
+            ...params,
+            type: 'smoothstep',
+            animated: true,
+            style: { strokeWidth: 2, stroke: 'var(--flow-edge, #8b5cf6)' },
+            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--flow-edge, #8b5cf6)' },
+          },
+          eds
+        )
+      )
     },
     [setEdges]
   )
@@ -286,7 +272,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
         triggerType,
         triggerConfig: triggerType === 'WEBHOOK' ? triggerConfig : {},
         nodes: nodes.map((node) => {
-          let dbType = 'PROCESS'
+          let dbType: 'AGENT' | 'PROCESS' = 'PROCESS'
           if (node.type === 'agent') dbType = 'AGENT'
           
           const config: any = {
@@ -316,6 +302,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
           }
 
           return {
+            id: node.id,
             type: dbType,
             positionX: node.position.x,
             positionY: node.position.y,
@@ -368,24 +355,32 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       if (flowId === 'new') {
         router.push(`/dashboard/flows/${savedFlow.id}`)
       } else {
-        setIsSaving(false)
         alert('Flow salvo com sucesso!')
       }
     } catch (error) {
       console.error('Error saving flow:', error)
       alert(error instanceof Error ? error.message : 'Erro ao salvar flow')
+    } finally {
       setIsSaving(false)
     }
   }
 
   const handleAddNode = (type: string) => {
-    const position = reactFlowInstanceRef.current?.screenToFlowPosition({
+    const inst = reactFlowInstanceRef.current
+    const center = inst?.screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
     }) || { x: 400, y: 300 }
+    // Desvia posições para não empilhar nós ao adicionar vários seguidos
+    const n = nodes.length
+    const position = {
+      x: center.x - 90 + (n % 4) * 100,
+      y: center.y - 40 + Math.floor(n / 4) * 90,
+    }
+    const id = globalThis.crypto.randomUUID()
 
     const newNode: Node = {
-      id: `${type}-${Date.now()}`,
+      id,
       type,
       position,
       data: {
@@ -402,10 +397,10 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
         connectionType: type === 'panel' || type === 'social' ? 'default' : undefined,
         platform: type === 'social' ? 'instagram' : undefined,
         accountName: type === 'social' ? '' : undefined,
-        color: type === 'shape' ? '#3b82f6' : undefined,
-        opacity: type === 'shape' ? 0.3 : undefined,
-        width: type === 'shape' ? 300 : undefined,
-        height: type === 'shape' ? 200 : undefined,
+        color: type === 'shape' ? '#a78bfa' : undefined,
+        opacity: type === 'shape' ? 0.12 : undefined,
+        width: type === 'shape' ? 280 : undefined,
+        height: type === 'shape' ? 160 : undefined,
         text: type === 'shape' ? '' : undefined,
         config: {},
       },
@@ -438,14 +433,14 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
   const handleDuplicateNode = () => {
     if (selectedNode) {
-      const position = reactFlowInstanceRef.current?.screenToFlowPosition({
-        x: selectedNode.position.x + 50,
-        y: selectedNode.position.y + 50,
-      }) || { x: selectedNode.position.x + 50, y: selectedNode.position.y + 50 }
+      const position = {
+        x: selectedNode.position.x + 48,
+        y: selectedNode.position.y + 48,
+      }
 
       const newNode: Node = {
         ...selectedNode,
-        id: `${selectedNode.type}-${Date.now()}`,
+        id: globalThis.crypto.randomUUID(),
         position,
       }
 
@@ -462,7 +457,7 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
 
       const newNode: Node = {
         ...copiedNode,
-        id: `${copiedNode.type}-${Date.now()}`,
+        id: globalThis.crypto.randomUUID(),
         position,
       }
 
@@ -543,9 +538,10 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link
               href="/dashboard/flows"
-              className="shrink-0 rounded-lg p-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--accent-muted)]"
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)]"
             >
-              <X className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
+              Todos os flows
             </Link>
             <input
               type="text"
@@ -653,16 +649,15 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
       {/* ReactFlow Canvas */}
       <div className="absolute inset-0 top-[168px] bg-[var(--surface-base)]">
         <ReactFlow
-          nodes={nodes.map(node => {
-            // Shape nodes should have lower z-index to stay behind other nodes
+          nodes={nodes.map((node) => {
             if (node.type === 'shape') {
               return {
                 ...node,
-                style: { ...node.style, zIndex: -1 },
-                zIndex: -1,
+                style: { ...node.style, zIndex: 0 },
+                zIndex: 0,
               }
             }
-            return node
+            return { ...node, zIndex: 1 }
           })}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -670,8 +665,9 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
           onConnect={onConnect}
           onNodeClick={handleNodeClick}
           onNodeContextMenu={handleNodeContextMenu}
-          onInit={(instance: any) => {
+          onInit={(instance: { fitView: (o?: { padding?: number }) => void }) => {
             reactFlowInstanceRef.current = instance
+            requestAnimationFrame(() => instance.fitView({ padding: 0.2 }))
           }}
           nodeTypes={{
             ...nodeTypes,
@@ -688,9 +684,18 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
               />
             ),
           }}
-          fitView
-          panOnDrag={isPanOnDrag}
-          className="bg-[var(--surface-base)]"
+          defaultEdgeOptions={{
+            type: 'smoothstep',
+            animated: true,
+            style: { strokeWidth: 2, stroke: 'var(--flow-edge, #8b5cf6)' },
+            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--flow-edge, #8b5cf6)' },
+          }}
+          connectionRadius={28}
+          minZoom={0.15}
+          maxZoom={1.5}
+          zoomOnScroll
+          panOnScroll
+          className="bg-[var(--surface-base)] [&_.react-flow__edge-path]:!stroke-[#8b5cf6] dark:[&_.react-flow__edge-path]:!stroke-violet-400"
         >
         <Background color={gridColor} gap={20} size={1} />
         <Controls />
@@ -722,56 +727,35 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
             
             {/* Menu items */}
             {!isMenuCollapsed && (
-              <div className="p-2 space-y-1 min-w-[200px]">
-                <button
-                  onClick={() => handleAddNode('shape')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                >
-                  <div className="w-4 h-4 border-2 border-white rounded" />
-                  Forma
-                </button>
-                <button
-                  onClick={() => handleAddNode('context')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
-                >
-                  <FileText className="w-4 h-4" />
-                  Contexto
-                </button>
-                <button
-                  onClick={() => handleAddNode('process')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                >
-                  <Settings className="w-4 h-4" />
-                  Processo
-                </button>
-                <button
-                  onClick={() => handleAddNode('visualization')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm"
-                >
-                  <Eye className="w-4 h-4" />
-                  Visualização
-                </button>
-                <button
-                  onClick={() => handleAddNode('agent')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  <Bot className="w-4 h-4" />
-                  Agente
-                </button>
-                <button
-                  onClick={() => handleAddNode('panel')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
-                >
-                  <Layout className="w-4 h-4" />
-                  Painel
-                </button>
-                <button
-                  onClick={() => handleAddNode('social')}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm"
-                >
-                  <Instagram className="w-4 h-4" />
-                  Rede Social
-                </button>
+              <div className="min-w-[220px] space-y-0.5 p-2">
+                <p className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
+                  Arrasta para o canvas (clique = centro visível)
+                </p>
+                {(
+                  [
+                    { t: 'shape', label: 'Forma', sub: 'Notas / caixa', bar: 'bg-zinc-500', icon: <div className="h-3.5 w-3.5 rounded border-2 border-[var(--border-strong)]" /> },
+                    { t: 'context', label: 'Contexto', sub: 'Texto, dados', bar: 'bg-amber-500', icon: <FileText className="h-3.5 w-3.5" /> },
+                    { t: 'process', label: 'Processo', sub: 'I/O', bar: 'bg-violet-500', icon: <Settings className="h-3.5 w-3.5" /> },
+                    { t: 'visualization', label: 'Visualização', sub: 'Resultado', bar: 'bg-cyan-500', icon: <Eye className="h-3.5 w-3.5" /> },
+                    { t: 'agent', label: 'Agente', sub: 'LLM', bar: 'bg-blue-500', icon: <Bot className="h-3.5 w-3.5" /> },
+                    { t: 'panel', label: 'Painel', sub: 'Layout', bar: 'bg-emerald-500', icon: <Layout className="h-3.5 w-3.5" /> },
+                    { t: 'social', label: 'Rede social', sub: 'Conta', bar: 'bg-pink-500', icon: <Instagram className="h-3.5 w-3.5" /> },
+                  ] as const
+                ).map((row) => (
+                  <button
+                    key={row.t}
+                    type="button"
+                    onClick={() => handleAddNode(row.t)}
+                    className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2 py-2 text-left text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-subtle)] hover:bg-[var(--accent-muted)]/60"
+                  >
+                    <span className={`w-1 self-stretch rounded-full ${row.bar}`} aria-hidden />
+                    <span className="shrink-0 text-[var(--text-secondary)]">{row.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium leading-tight">{row.label}</span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">{row.sub}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -800,7 +784,8 @@ export default function FlowCanvasComponent({ flowId }: FlowCanvasComponentProps
               • {nodes.length} cards • {edges.length} ligações
             </span>
             <span className="text-xs text-[var(--text-tertiary)]">
-              Espaço = pan • ⌘/Ctrl+D = duplicar • Delete = remover
+              Arrasta o fundo vazio para mover o mapa · liga puxando dos pins dos nós ·⌘/Ctrl+S
+              salvar ·⌘/Ctrl+D duplicar · Delete remover
             </span>
           </div>
         </Panel>

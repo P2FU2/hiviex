@@ -4,6 +4,7 @@
  * POST: Create a new flow
  */
 
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
@@ -152,7 +153,9 @@ export async function POST(request: NextRequest) {
           : {}),
         nodes: nodes
           ? {
+              // IDs explícitos alinham ligações do canvas (sourceNodeId / targetNodeId) aos nós gravados
               create: nodes.map((node: any) => ({
+                id: typeof node.id === 'string' && node.id.length > 0 ? node.id : randomUUID(),
                 type: node.type,
                 agentId: node.agentId,
                 processType: node.processType,

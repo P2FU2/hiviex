@@ -5,6 +5,7 @@
  * DELETE: Delete flow
  */
 
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/auth/session'
 import { getUserTenants } from '@/lib/utils/tenant'
@@ -169,6 +170,7 @@ export async function PUT(
       if (nodes) {
         await (prisma as any).flowNode.createMany({
           data: nodes.map((node: any) => ({
+            id: typeof node.id === 'string' && node.id.length > 0 ? node.id : randomUUID(),
             flowId,
             type: node.type,
             agentId: node.agentId,

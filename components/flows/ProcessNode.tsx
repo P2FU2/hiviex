@@ -32,7 +32,7 @@ export default function ProcessNode({ data }: { data: ProcessNodeData }) {
   const outputs = data.outputs || []
 
   return (
-    <div className="px-4 py-3 bg-white dark:bg-black border-2 border-purple-300 dark:border-purple-700 rounded-lg shadow-lg min-w-[250px]">
+    <div className="min-w-[250px] rounded-xl border-2 border-violet-400/50 bg-[var(--surface-elevated)]/95 px-4 py-3 shadow-md backdrop-blur-sm dark:border-violet-500/40">
       {/* Input Handles */}
       {inputs.map((input, idx) => (
         <Handle
@@ -40,21 +40,21 @@ export default function ProcessNode({ data }: { data: ProcessNodeData }) {
           type="target"
           position={Position.Left}
           id={input.id}
-          className="w-3 h-3"
+          className="!h-2.5 !w-2.5 !border-2 !border-violet-500 !bg-violet-100 dark:!bg-violet-900"
           style={{
-            top: `${20 + idx * 30}px`,
+            top: `${24 + idx * 28}px`,
           }}
         />
       ))}
       
       <div className="flex items-center gap-2 mb-2">
         <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-        <div className="text-xs px-2 py-1 bg-purple-200 dark:bg-purple-800 rounded text-purple-800 dark:text-purple-200 font-medium">
+        <div className="rounded bg-violet-500/15 px-2 py-0.5 text-xs font-semibold text-violet-800 dark:text-violet-200">
           PROCESSO
         </div>
       </div>
       
-      <div className="font-semibold text-sm text-black dark:text-white mb-1">
+      <div className="mb-1 text-sm font-semibold text-[var(--text-primary)]">
         {data.label}
       </div>
       
@@ -126,9 +126,9 @@ export default function ProcessNode({ data }: { data: ProcessNodeData }) {
           type="source"
           position={Position.Right}
           id={output.id}
-          className="w-3 h-3"
+          className="!h-2.5 !w-2.5 !border-2 !border-violet-500 !bg-violet-100 dark:!bg-violet-900"
           style={{
-            top: `${20 + idx * 30}px`,
+            top: `${24 + idx * 28}px`,
           }}
         />
       ))}
