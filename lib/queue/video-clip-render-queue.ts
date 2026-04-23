@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq'
 import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
+import { idempotencyKeyToBullJobId } from '@/lib/queue/bullmq-job-id'
 
 export interface VideoClipRenderJobData {
   tenantId: string
@@ -17,7 +18,7 @@ export class VideoClipRenderQueue {
 
   async enqueue(data: VideoClipRenderJobData): Promise<string> {
     const job = await this.queue.add('run', data, {
-      jobId: data.idempotencyKey,
+      jobId: idempotencyKeyToBullJobId(data.idempotencyKey),
       attempts: 2,
       backoff: { type: 'exponential', delay: 8000 },
       removeOnComplete: { count: 80, age: 86400 },

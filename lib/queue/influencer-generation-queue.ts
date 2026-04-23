@@ -4,6 +4,7 @@
 
 import { Queue } from 'bullmq'
 import type { BullMQConnection } from '@/lib/redis/bullmq-connection'
+import { idempotencyKeyToBullJobId } from '@/lib/queue/bullmq-job-id'
 
 export interface InfluencerGenerationJobData {
   tenantId: string
@@ -28,7 +29,7 @@ export class InfluencerGenerationQueue {
       'run',
       data,
       {
-        jobId: data.idempotencyKey,
+        jobId: idempotencyKeyToBullJobId(data.idempotencyKey),
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: { count: 100, age: 86400 },

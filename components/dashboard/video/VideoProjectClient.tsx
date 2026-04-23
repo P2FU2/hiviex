@@ -71,6 +71,20 @@ const DEFAULT_SEGMENTS = `[
   { "startMs": 2000, "endMs": 5000, "text": "Isto é um exemplo de legenda." }
 ]`
 
+function jobStatusPillClass(status: string) {
+  const s = status.toUpperCase()
+  if (s === 'COMPLETED') {
+    return 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-200 border border-emerald-500/20'
+  }
+  if (s === 'FAILED') {
+    return 'bg-red-500/10 text-red-800 dark:text-red-200 border border-red-500/20'
+  }
+  if (s === 'RUNNING' || s === 'PENDING' || s === 'QUEUED') {
+    return 'bg-sky-500/12 text-sky-900 dark:text-sky-200 border border-sky-500/25'
+  }
+  return 'bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border border-zinc-500/20'
+}
+
 export function VideoProjectClient(props: {
   project: {
     id: string
@@ -91,8 +105,16 @@ export function VideoProjectClient(props: {
   const [uploadAssetId, setUploadAssetId] = useState('')
   const [mediaPicklist, setMediaPicklist] = useState<MediaPickItem[]>([])
   const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  const [error, setErrorState] = useState<string | null>(null)
+  const [info, setInfoState] = useState<string | null>(null)
+  const setError = useCallback((msg: string | null) => {
+    setErrorState(msg)
+    if (msg) setInfoState(null)
+  }, [])
+  const setInfo = useCallback((msg: string | null) => {
+    setInfoState(msg)
+    if (msg) setErrorState(null)
+  }, [])
   const [titleDraft, setTitleDraft] = useState(project.title)
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [captionTracks, setCaptionTracks] = useState(initialCaptionTracks)
@@ -644,10 +666,17 @@ export function VideoProjectClient(props: {
       </header>
 
       {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p
+          role="alert"
+          className="text-sm text-red-800 dark:text-red-200 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5"
+        >
+          {error}
+        </p>
       ) : null}
       {info ? (
-        <p className="text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">
+        <p
+          className="text-sm text-emerald-800 dark:text-emerald-200 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2.5"
+        >
           {info}
         </p>
       ) : null}
@@ -670,7 +699,7 @@ export function VideoProjectClient(props: {
             type="button"
             disabled={!!busy}
             onClick={() => void addUrlSource()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-black dark:bg-white text-white dark:text-black text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm disabled:opacity-50 shadow-sm"
           >
             {busy === 'url' ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
             Adicionar URL
@@ -696,7 +725,7 @@ export function VideoProjectClient(props: {
             type="button"
             disabled={!!busy}
             onClick={() => void addUploadSource()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 dark:border-white/20 text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-violet-500/40 text-violet-800 dark:text-violet-200 bg-violet-500/5 hover:bg-violet-500/10 text-sm disabled:opacity-50"
           >
             {busy === 'upload' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             Adicionar upload
@@ -736,19 +765,27 @@ export function VideoProjectClient(props: {
         {jobs.length === 0 ? (
           <p className="text-sm text-gray-500">Nenhum job registado ainda.</p>
         ) : (
-          <ul className="space-y-1.5 text-sm">
+          <ul className="space-y-2 text-sm">
             {jobs.map((j) => (
               <li
                 key={j.id}
-                className="flex flex-wrap gap-2 justify-between rounded-lg border border-gray-200/60 dark:border-white/10 px-3 py-2"
+                className="flex flex-col gap-1.5 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/50 dark:bg-zinc-950/40 px-3 py-2.5"
               >
-                <span className="font-mono text-xs">{j.type}</span>
-                <span className="text-xs uppercase text-gray-500">{j.status}</span>
-                <span className="text-xs text-gray-400 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 justify-between">
+                  <span className="font-mono text-xs text-[var(--text-primary,inherit)]">
+                    {j.type}
+                  </span>
+                  <span
+                    className={`text-[10px] uppercase font-semibold tracking-wide px-2 py-0.5 rounded-md ${jobStatusPillClass(j.status)}`}
+                  >
+                    {j.status}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {new Date(j.createdAt).toLocaleString()}
-                </span>
+                </div>
                 {j.error ? (
-                  <span className="text-xs text-red-600 w-full truncate">{j.error}</span>
+                  <span className="text-xs text-red-700 dark:text-red-300 line-clamp-2">{j.error}</span>
                 ) : null}
               </li>
             ))}
@@ -807,8 +844,27 @@ export function VideoProjectClient(props: {
         </h2>
         <ul className="space-y-2">
           {candidates.length === 0 ? (
-            <li className="text-gray-500 text-sm">
-              Ainda não há candidatos — corre a análise de cortes (worker).
+            <li className="rounded-xl border border-dashed border-violet-300/60 dark:border-violet-500/30 bg-violet-500/[0.04] px-4 py-5 text-center space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Ainda não há segmentos sugeridos. Inicia a análise de cortes para o worker
+                detetar momentos.
+              </p>
+              <button
+                type="button"
+                disabled={!!busy || sources.length === 0}
+                onClick={() => void analyzeClips()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-sm disabled:opacity-50"
+              >
+                {busy === 'clips' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Scissors className="w-4 h-4" />
+                )}
+                Analisar cortes
+              </button>
+              {sources.length === 0 ? (
+                <p className="text-xs text-gray-500">Adiciona primeiro uma fonte de vídeo acima.</p>
+              ) : null}
             </li>
           ) : (
             candidates.map((c) => (

@@ -42,17 +42,25 @@ interface NavItem {
   submenu?: NavItem[]
 }
 
+/**
+ * Ordem: visão geral → contexto (workspace) → aprender → pré-requisitos (chaves de IA) →
+ * criação (agentes, automação) → conteúdo (mídia, calendário) → canais (integrações) →
+ * funcionalidades avançadas (influencer, vídeo) → negócio (analytics, billing) → operações
+ * (saúde) → definições.
+ */
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Workspaces', href: '/dashboard/workspaces', icon: Users },
+  { name: 'Guias', href: '/dashboard/guides', icon: Book },
+  { name: 'APIs e IA', href: '/dashboard/apis', icon: Code2 },
   {
     name: 'Agents',
     href: '/dashboard/agents',
     icon: Bot,
     submenu: [
       { name: 'Todos os Agentes', href: '/dashboard/agents', icon: Bot },
-      { name: 'Biblioteca', href: '/dashboard/agents/library', icon: Library },
       { name: 'Criar Agente', href: '/dashboard/agents/new', icon: Sparkles },
+      { name: 'Biblioteca', href: '/dashboard/agents/library', icon: Library },
       { name: 'Chat', href: '/dashboard/chat', icon: MessageSquare },
     ],
   },
@@ -62,16 +70,15 @@ const navigation: NavItem[] = [
     icon: Workflow,
     submenu: [
       { name: 'Meus Workflows', href: '/dashboard/workflows', icon: Workflow },
-      { name: 'Criar Workflow', href: '/dashboard/workflows/new', icon: Sparkles },
       { name: 'Flow Builder', href: '/dashboard/flows', icon: GitBranch },
       { name: 'Criar Flow', href: '/dashboard/flows/new', icon: Sparkles },
+      { name: 'Criar Workflow', href: '/dashboard/workflows/new', icon: Sparkles },
       { name: 'Execuções', href: '/dashboard/flows/executions', icon: GitBranch },
     ],
   },
-  { name: 'Integrações', href: '/dashboard/integrations', icon: Plug },
-  { name: 'APIs e IA', href: '/dashboard/apis', icon: Code2 },
-  { name: 'Calendário', href: '/dashboard/calendar', icon: CalendarDays },
   { name: 'Mídia', href: '/dashboard/media', icon: Images },
+  { name: 'Calendário', href: '/dashboard/calendar', icon: CalendarDays },
+  { name: 'Integrações', href: '/dashboard/integrations', icon: Plug },
   { name: 'Influenciadores AI', href: '/dashboard/influencers', icon: Sparkles },
   { name: 'Vídeo', href: '/dashboard/video', icon: Clapperboard },
   {
@@ -87,7 +94,6 @@ const navigation: NavItem[] = [
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
   { name: 'Sistema', href: '/dashboard/status', icon: Activity },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-  { name: 'Guias', href: '/dashboard/guides', icon: Book },
 ]
 
 export default function DashboardSidebar() {
