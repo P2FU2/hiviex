@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Menu, X, Sun, Moon } from 'lucide-react'
 import { useThemeDetection } from '@/hooks/useThemeDetection'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
 
 export default function LandingNav() {
@@ -12,6 +13,8 @@ export default function LandingNav() {
   const [mounted, setMounted] = useState(false)
   const theme = useThemeDetection()
   const { isAuthenticated, openAuthModal } = useAuth()
+  const { status: sessionStatus } = useSession()
+  const isLoggedIn = isAuthenticated || sessionStatus === 'authenticated'
 
   useEffect(() => setMounted(true), [])
 
@@ -36,8 +39,9 @@ export default function LandingNav() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)]/80 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--surface-elevated)]/65">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
-          href="/"
+          href={isLoggedIn ? '/dashboard?focusSearch=1' : '/'}
           className="text-sm font-semibold tracking-tight text-[var(--text-primary)] transition-opacity hover:opacity-80"
+          aria-label={isLoggedIn ? 'Hiviex — Abrir o dashboard' : 'Hiviex — Página inicial'}
         >
           Hiviex
         </Link>
@@ -76,9 +80,9 @@ export default function LandingNav() {
             </button>
           )}
           <div className="hidden items-center gap-2 sm:flex">
-            {isAuthenticated ? (
+            {isLoggedIn ? (
               <Link
-                href="/dashboard"
+                href="/dashboard?focusSearch=1"
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] dark:text-[var(--accent-foreground)]"
               >
                 Abrir app
@@ -137,8 +141,12 @@ export default function LandingNav() {
                 </Link>
               )
             )}
-            {isAuthenticated ? (
-              <Link href="/dashboard" className="text-sm font-medium text-[var(--accent)]" onClick={() => setOpen(false)}>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard?focusSearch=1"
+                className="text-sm font-medium text-[var(--accent)]"
+                onClick={() => setOpen(false)}
+              >
                 Abrir app
               </Link>
             ) : (

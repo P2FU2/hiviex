@@ -46,7 +46,7 @@ export const CURSOR = {
   Z_INDEX: 99999,
   SIZE: 24,
   INTERACTIVE_SELECTORS:
-    'a,button,[role="button"],input,textarea,select,summary,label,[tabindex]:not([tabindex="-1"])',
+    'a,button,[role="button"],[role="link"],[role="tab"],.cursor-pointer,[data-cursor="pointer"],input,textarea,select,summary,label,[tabindex]:not([tabindex="-1"])',
   /** Interpolação posição por frame (maior = mais “colado” ao rato, mais responsivo). */
   SMOOTHNESS: 0.58,
   /** Velocidade da escala ao passar em elementos interativos. */

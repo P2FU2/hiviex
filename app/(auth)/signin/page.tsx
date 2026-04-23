@@ -20,7 +20,7 @@ export default function SignInInterceptPage() {
   useEffect(() => {
     // If user is authenticated (likely OAuth callback), redirect immediately to dashboard
     if (status === 'authenticated' && session) {
-      router.replace('/dashboard')
+      router.replace('/dashboard?focusSearch=1')
       return
     }
 

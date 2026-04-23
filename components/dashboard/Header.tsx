@@ -4,13 +4,37 @@
 
 'use client'
 
+import { Suspense, useEffect, useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import { LogOut, Settings, Sun, Moon, Search } from 'lucide-react'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCommandPalette } from '@/contexts/CommandPaletteContext'
-import { useState, useEffect } from 'react'
 import { useThemeDetection } from '@/hooks/useThemeDetection'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
+
+/**
+ * Após login (query ?focusSearch=1), abre a paleta para o cursor ficar no campo de busca,
+ * como na home com ⌘K — e remove o parâmetro da URL.
+ */
+function OpenSearchAfterLogin() {
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
+  const { setOpen: openCommandPalette } = useCommandPalette()
+
+  const wantFocus = searchParams.get('focusSearch')
+  useEffect(() => {
+    if (wantFocus !== '1') return
+    openCommandPalette(true)
+    const q = new URLSearchParams(searchParams.toString())
+    q.delete('focusSearch')
+    const next = q.toString() ? `${pathname}?${q}` : pathname
+    router.replace(next, { scroll: false })
+  }, [wantFocus, pathname, router, openCommandPalette, searchParams])
+
+  return null
+}
 
 export default function DashboardHeader() {
   const { data: session } = useSession()
@@ -32,11 +56,16 @@ export default function DashboardHeader() {
 
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)]/85 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--surface-elevated)]/70">
+      <Suspense fallback={null}>
+        <OpenSearchAfterLogin />
+      </Suspense>
       <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between gap-4 px-4 lg:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
             href="/dashboard"
             className="shrink-0 text-sm font-semibold tracking-tight text-[var(--text-primary)] transition-opacity hover:opacity-80"
+            aria-label="Hiviex — Ir para o dashboard"
+            prefetch
           >
             Hiviex
           </Link>

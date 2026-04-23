@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If successful, redirect manually
       if (result?.ok) {
         setAuthModalOpen(false)
-        window.location.href = '/dashboard'
+        window.location.href = '/dashboard?focusSearch=1'
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If successful, redirect manually and close modal
       if (result?.ok) {
         setAuthModalOpen(false)
-        window.location.href = '/dashboard'
+        window.location.href = '/dashboard?focusSearch=1'
       }
     } catch (error) {
       console.error('Signup error:', error)

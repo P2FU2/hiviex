@@ -56,7 +56,7 @@ export default function AuthModal() {
   const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     try {
       await signIn(provider, {
-        callbackUrl: '/dashboard',
+        callbackUrl: '/dashboard?focusSearch=1',
         redirect: true,
       })
     } catch (err) {
